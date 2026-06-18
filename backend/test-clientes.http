@@ -14,7 +14,7 @@ GET http://localhost:3000/clientes
 ### 3. Buscar um cliente por ID (Substitua pelo ID gerado na criação)
 GET http://localhost:3000/clientes/ID_AQUI
 
-### 4. Atualizar dados de um cliente (Substitua pelo ID gerado)
+### 4. Atualizar dados de um cliente (Substitua pelo ID gerado) ------- Verificar erro
 PATCH http://localhost:3000/clientes/ID_AQUI
 Content-Type: application/json
 
@@ -22,5 +22,5 @@ Content-Type: application/json
   "telefone": "11988888888"
 }
 
-### 5. Excluir um cliente (Substitua pelo ID gerado)
+### 5. Excluir um cliente (Substitua pelo ID gerado) -------- Náo testado ainda
 DELETE http://localhost:3000/clientes/ID_AQUI

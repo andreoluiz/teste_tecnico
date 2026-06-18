@@ -32,7 +32,7 @@ export class ClientesService {
   }
 
   async update(id: string, updateClienteDto: UpdateClienteDto) {
-    await this.findOne(id); // Valida se o cliente existe
+    await this.findOne(id); 
     return this.prisma.cliente.update({
       where: { id },
       data: updateClienteDto,
@@ -40,7 +40,7 @@ export class ClientesService {
   }
 
   async remove(id: string) {
-    await this.findOne(id); // Valida se o cliente existe
+    await this.findOne(id); 
     return this.prisma.cliente.delete({
       where: { id },
     });

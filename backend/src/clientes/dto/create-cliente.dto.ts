@@ -1,5 +1,15 @@
+import { IsString, IsNotEmpty, IsOptional, IsEmail } from 'class-validator';
+
 export class CreateClienteDto {
-  nome: string;
+  @IsString()
+  @IsNotEmpty()
+  nome!: string;
+
+  @IsEmail()
+  @IsOptional()
   email?: string;
+
+  @IsString()
+  @IsOptional()
   telefone?: string;
 }
