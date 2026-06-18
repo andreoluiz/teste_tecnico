@@ -2,7 +2,7 @@ name: CI Pipeline - SIGE Backend
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "feat/frontend_sige" ]
   pull_request:
     branches: [ "main", "dev" ]
 
@@ -28,6 +28,10 @@ jobs:
     - name: Install dependencies
       working-directory: ./backend
       run: npm ci
+
+    - name: Run Linter
+      working-directory: ./backend
+      run: npm run lint
 
     - name: Check TypeScript Compilation
       working-directory: ./backend
