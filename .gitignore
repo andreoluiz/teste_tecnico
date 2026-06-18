@@ -1,19 +1,35 @@
-#Dependências locais
+# Dependências locais (cobre raiz e subpastas)
 node_modules/
-/backend/node_modules/
-/frontend/node_modules/
+**/node_modules/
 
-#Variaveis de ambiente
+# Builds e compilações (Backend e Frontend)
+dist/
+**/dist/
+build/
+**/build/
+
+# Cache local do Vite
+.vite/
+**/.vite/
+
+# Variáveis de ambiente (Segredos)
 .env
 .env.local
+.env.development.local
 .env.test.local
+.env.production.local
 
-#logs
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-#Arquivos da IDE
+# Arquivos da IDE
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Arquivos do Sistema Operacional
+.DS_Store
+Thumbs.db

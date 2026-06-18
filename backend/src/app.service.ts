@@ -7,7 +7,6 @@ export class AppService {
 
   async getHello() {
     try {
-      // Executa uma query crua ultra rápida no banco para testar o ponteiro de conexão
       await this.prisma.$queryRaw`SELECT 1`;
 
       return {
