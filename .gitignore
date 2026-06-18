@@ -1,8 +1,8 @@
-# Dependências locais (cobre raiz e subpastas)
+# Dependências locais
 node_modules/
 **/node_modules/
 
-# Builds e compilações (Backend e Frontend)
+# Builds e compilações 
 dist/
 **/dist/
 build/
@@ -12,7 +12,7 @@ build/
 .vite/
 **/.vite/
 
-# Variáveis de ambiente (Segredos)
+# Variáveis de ambiente
 .env
 .env.local
 .env.development.local

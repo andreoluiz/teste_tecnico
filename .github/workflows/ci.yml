@@ -1,0 +1,50 @@
+name: CI Pipeline - SIGE Backend
+
+on:
+  push:
+    branches: [ "main", "dev",]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Generate Prisma Client
+      working-directory: ./backend
+      run: npx prisma generate
+
+    - name: Run Linter
+      working-directory: ./backend
+      run: npm run lint
+
+    - name: Check TypeScript Compilation
+      working-directory: ./backend
+      run: npx tsc --noEmit
+
+    - name: Run Unit Tests
+      working-directory: ./backend
+      run: npm run test
+
+    - name: Run E2E Tests
+      working-directory: ./backend
+      run: npm run test:e2e

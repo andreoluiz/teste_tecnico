@@ -1,13 +1,11 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
-//Gerentes/Usuários
 model Usuario {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -16,6 +14,72 @@ model Usuario {
   role      String   @default("GERENTE")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
   @@map("usuarios")
+}
+
+// Clientes (Cadastro isolado/agenda de contatos)
+model Cliente {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String?
+  telefone  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("clientes")
+}
+
+model Produto {
+  id           String      @id @default(uuid())
+  nome         String
+  tipo         String      
+  material     String      @default("—")
+  preco        Decimal     @db.Decimal(10, 2)
+  quantidade   Int         @default(0)
+  alertaMinimo Int         @default(0) @map("alerta_minimo")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  
+  itensVenda   ItemVenda[]
+  @@map("produtos")
+}
+
+model Insumo {
+  id           String   @id @default(uuid())
+  nome         String
+  tipo         String  
+  unidade      String   
+  descricao    String?  
+  quantidade   Int      @default(0)
+  precoUnit    Decimal  @map("preco_unit") @db.Decimal(10, 2)
+  alertaMinimo Int      @default(0) @map("alerta_minimo")
+  fornecedor   String?  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  @@map("insumos")
+}
+
+model Venda {
+  id        String      @id @default(uuid())
+  numero    Int         @unique @default(autoincrement())
+  cliente   String
+  data      DateTime    @default(now())
+  total     Decimal     @db.Decimal(10, 2)
+  status    String      @default("Concluída")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  
+  itens     ItemVenda[]
+  @@map("vendas")
+}
+
+model ItemVenda {
+  id         String   @id @default(uuid())
+  vendaId    String   @map("venda_id")
+  produtoId  String   @map("produto_id")
+  quantidade Int
+  precoUnit  Decimal  @map("preco_unit") @db.Decimal(10, 2) 
+  venda      Venda    @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Restrict)
+  @@map("itens_venda")
 }
