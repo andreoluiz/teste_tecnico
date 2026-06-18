@@ -4,7 +4,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
-import { jest } from '@jest/globals';
+import { describe, beforeEach, it, expect, jest, afterEach } from '@jest/globals';
+
 
 
 describe('AppController (e2e)', () => {
