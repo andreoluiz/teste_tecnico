@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PassportModule } from '@nestjs/passport';
@@ -9,12 +9,13 @@ import { ClientesModule } from './clientes/clientes.module';
 import { ProdutosModule } from './produtos/produtos.module';
 import { JwtStrategy } from './common/guards/jwt.strategy';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { LoggingMiddleware } from './common/middlewares/logging.middleware';
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 minuto
-      limit: 100, // máximo de 100 requisições
+      ttl: 60000,
+      limit: 100,
     }]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     PrismaModule, 
@@ -35,4 +36,11 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     },
   ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LoggingMiddleware)
+      .forRoutes('*'); // Aplica a todas as rotas
+  }
+}
+
