@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
+import { supabase } from "../../services/supabaseClient";
 import type { LoginFormData } from "../../types/auth";
 
 export function Login() {
@@ -57,10 +58,32 @@ export function Login() {
 
     setIsLoading(true);
 
-    // MODO DEMO: aceita qualquer credencial sem chamar o backend
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setIsLoading(false);
-    navigate("/dashboard");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.senha,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.session) {
+        setSuccessMessage("Login realizado com sucesso! Redirecionando...");
+        // Pequeno timeout para mostrar a mensagem de sucesso
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 1000);
+      }
+    } catch (error: any) {
+      setErrorMessage(
+        error.message === "Invalid login credentials"
+          ? "Credenciais inválidas. Verifique seu e-mail e senha."
+          : error.message || "Erro ao tentar realizar o login."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field: keyof LoginFormData, value: string | boolean) => {
@@ -192,19 +215,6 @@ export function Login() {
               )}
             </Button>
           </form>
-
-          {/* Register Link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Não tem uma conta?{" "}
-              <Link 
-                to="/register" 
-                className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
-              >
-                Cadastre-se
-              </Link>
-            </p>
-          </div>
         </div>
 
         {/* Footer */}
@@ -215,3 +225,4 @@ export function Login() {
     </div>
   );
 }
+
