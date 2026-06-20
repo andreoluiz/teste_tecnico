@@ -1,7 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getInsumos, Insumo } from "../../services/insumos";
-import { supabase } from "../../services/supabaseClient";
 import {
   Package,
   AlertTriangle,
@@ -39,13 +37,30 @@ type ActiveTab = "insumos" | "estoque" | "vendas" | "inteligencia";
 type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
 type PeriodoVendas = 30 | 60 | 90 | 120;
 
-// ─── Dados Insumos (Serão dinâmicos, mas mantemos os tipos de estrutura) ─────
+// ─── Dados Insumos ───────────────────────────────────────────────────────────
 
-const statusConfigInsumo = {
-  Normal: "bg-green-100 text-green-700 border border-green-200",
-  Baixo: "bg-amber-100 text-amber-700 border border-amber-200",
-  "Sem estoque": "bg-red-100 text-red-700 border border-red-200",
-};
+const insumosBaixoEstoque = [
+  { nome: "Linha Branca Reforçada", categoria: "Linha", quantidade: 0, unidade: "rolo" },
+  { nome: "Agulha Industrial", categoria: "Agulha", quantidade: 3, unidade: "pacote" },
+];
+
+const statusGeralInsumos = [
+  { label: "Em estoque adequado", count: 3, ok: true },
+  { label: "Baixo estoque", count: 2, ok: false },
+];
+
+const topCategorias = [
+  { nome: "Tecido", count: 2 },
+  { nome: "Linha", count: 1 },
+  { nome: "Agulha", count: 1 },
+];
+
+const kpiInsumos = [
+  { label: "Insumos Cadastrados", value: "5", sub: "Tipos de matéria-prima", icon: Package, color: "blue" },
+  { label: "Insumos - Baixo Estoque", value: "2", sub: "necessitam compra", icon: AlertTriangle, color: "amber" },
+  { label: "Quantidade Total", value: "353", sub: "Unidades em estoque", icon: Layers, color: "blue" },
+  { label: "Categorias", value: "4", sub: "Tipos diferentes", icon: Tag, color: "blue" },
+];
 
 // ─── Dados Estoque ────────────────────────────────────────────────────────────
 
@@ -172,7 +187,84 @@ function InsumosBaixoAlert({
   );
 }
 
-
+function InsumosView() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpiInsumos.map((c) => <KpiCard key={c.label} {...c} />)}
+      </div>
+      <InsumosBaixoAlert items={insumosBaixoEstoque} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+              <FlaskConical className="size-4 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Gerenciar Insumos</h3>
+              <p className="text-xs text-gray-400">Adicionar, editar e controlar</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Gerencie suas matérias-primas, controle entradas e saídas e mantenha o estoque sempre atualizado.
+          </p>
+          <button className="mt-auto flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+            Acessar módulo <ChevronRight className="size-3.5" />
+          </button>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Status Geral</h3>
+            <p className="text-xs text-gray-400">Situação dos insumos</p>
+          </div>
+          <div className="space-y-3">
+            {statusGeralInsumos.map((item) => (
+              <div key={item.label} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {item.ok ? <TrendingUp className="size-3.5 text-green-500" /> : <TrendingDown className="size-3.5 text-amber-500" />}
+                  <span className="text-sm text-gray-600">{item.label}:</span>
+                </div>
+                <span className={`text-sm font-bold ${item.ok ? "text-green-600" : "text-amber-500"}`}>{item.count}</span>
+              </div>
+            ))}
+          </div>
+          <div className="pt-2">
+            <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
+              <div className="bg-green-400 rounded-full" style={{ width: "60%" }} />
+              <div className="bg-amber-400 rounded-full" style={{ width: "40%" }} />
+            </div>
+            <div className="flex justify-between mt-1.5">
+              <span className="text-xs text-gray-400">Adequado</span>
+              <span className="text-xs text-gray-400">Baixo</span>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Top Categorias</h3>
+            <p className="text-xs text-gray-400">Tipos de insumos</p>
+          </div>
+          <div className="space-y-3">
+            {topCategorias.map((cat, i) => (
+              <div key={cat.nome} className="flex items-center gap-3">
+                <span className="text-xs font-mono text-gray-400 w-4">{i + 1}</span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-700">{cat.nome}:</span>
+                    <span className="text-sm font-semibold text-blue-600">{cat.count}</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-400 rounded-full" style={{ width: `${(cat.count / 2) * 100}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EstoqueView() {
   return (
@@ -508,172 +600,6 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ActiveTab>("insumos");
   const [activeNav, setActiveNav] = useState<NavItem>("dashboard");
-  const [userEmail, setUserEmail] = useState<string>("Gerente");
-  const [insumos, setInsumos] = useState<Insumo[]>([]);
-  const [isLoadingInsumos, setIsLoadingInsumos] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user?.email) {
-        setUserEmail(data.user.email);
-      }
-    });
-
-    setIsLoadingInsumos(true);
-    getInsumos()
-      .then((data) => setInsumos(data))
-      .catch((e) => console.error("Erro ao carregar insumos na dashboard:", e))
-      .finally(() => setIsLoadingInsumos(false));
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
-  };
-
-  // Cálculos dinâmicos de Insumos
-  const insumosCadastradosCount = insumos.length;
-  const insumosBaixoEstoque = insumos.filter((i) => i.quantidade <= i.alertaMinimo);
-  const insumosBaixoEstoqueCount = insumosBaixoEstoque.length;
-  const totalUnidadesInsumos = insumos.reduce((acc, i) => acc + i.quantidade, 0);
-
-  // Agrupamento de categorias únicas
-  const categoriasUnicas = Array.from(new Set(insumos.map((i) => i.tipo)));
-  const categoriasCount = categoriasUnicas.length;
-
-  // KPIs dinâmicos para renderização
-  const dynamicKpiInsumos = [
-    { label: "Insumos Cadastrados", value: String(insumosCadastradosCount), sub: "Tipos de matéria-prima", icon: Package, color: "blue" },
-    { label: "Insumos - Baixo Estoque", value: String(insumosBaixoEstoqueCount), sub: "necessitam compra", icon: AlertTriangle, color: "amber" },
-    { label: "Quantidade Total", value: String(totalUnidadesInsumos), sub: "Unidades em estoque", icon: Layers, color: "blue" },
-    { label: "Categorias", value: String(categoriasCount), sub: "Tipos diferentes", icon: Tag, color: "blue" },
-  ];
-
-  // Status Geral dinâmico
-  const emEstoqueAdequadoCount = insumos.length - insumosBaixoEstoqueCount;
-  const dynamicStatusGeralInsumos = [
-    { label: "Em estoque adequado", count: emEstoqueAdequadoCount, ok: true },
-    { label: "Baixo estoque", count: insumosBaixoEstoqueCount, ok: false },
-  ];
-
-  // Cálculo de Porcentagem para a barra de progresso (Mínimo de 1% para não estourar layout)
-  const totalInsumosBar = insumos.length || 1;
-  const pctAdequado = Math.round((emEstoqueAdequadoCount / totalInsumosBar) * 100);
-  const pctBaixo = 100 - pctAdequado;
-
-  // Top categorias dinâmico
-  const contagemCategorias: Record<string, number> = {};
-  insumos.forEach((i) => {
-    contagemCategorias[i.tipo] = (contagemCategorias[i.tipo] || 0) + 1;
-  });
-  const dynamicTopCategorias = Object.entries(contagemCategorias)
-    .map(([nome, count]) => ({ nome, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
-
-  // Subcomponente de Insumos com dados dinâmicos injetados
-  function InsumosView() {
-    if (isLoadingInsumos) {
-      return <div className="p-8 text-center text-sm text-gray-500 bg-white border border-gray-200 rounded-xl">Carregando dados dos insumos...</div>;
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {dynamicKpiInsumos.map((c) => <KpiCard key={c.label} {...c} />)}
-        </div>
-
-        {insumosBaixoEstoqueCount > 0 && (
-          <InsumosBaixoAlert 
-            items={insumosBaixoEstoque.map(i => ({
-              nome: i.nome,
-              categoria: i.tipo,
-              quantidade: i.quantidade,
-              unidade: i.unidade.toLowerCase()
-            }))} 
-          />
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                <FlaskConical className="size-4 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Gerenciar Insumos</h3>
-                <p className="text-xs text-gray-400">Adicionar, editar e controlar</p>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Gerencie suas matérias-primas, controle entradas e saídas e mantenha o estoque sempre atualizado.
-            </p>
-            <button 
-              onClick={() => navigate("/insumos")}
-              className="mt-auto flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-            >
-              Acessar módulo <ChevronRight className="size-3.5" />
-            </button>
-          </div>
-          
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Status Geral</h3>
-              <p className="text-xs text-gray-400">Situação dos insumos</p>
-            </div>
-            <div className="space-y-3">
-              {dynamicStatusGeralInsumos.map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {item.ok ? <TrendingUp className="size-3.5 text-green-500" /> : <TrendingDown className="size-3.5 text-amber-500" />}
-                    <span className="text-sm text-gray-600">{item.label}:</span>
-                  </div>
-                  <span className={`text-sm font-bold ${item.ok ? "text-green-600" : "text-amber-500"}`}>{item.count}</span>
-                </div>
-              ))}
-            </div>
-            <div className="pt-2">
-              <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
-                <div className="bg-green-400 rounded-full" style={{ width: `${pctAdequado}%` }} />
-                <div className="bg-amber-400 rounded-full" style={{ width: `${pctBaixo}%` }} />
-              </div>
-              <div className="flex justify-between mt-1.5">
-                <span className="text-xs text-gray-400">Adequado ({pctAdequado}%)</span>
-                <span className="text-xs text-gray-400">Baixo ({pctBaixo}%)</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Top Categorias</h3>
-              <p className="text-xs text-gray-400">Tipos de insumos</p>
-            </div>
-            <div className="space-y-3">
-              {dynamicTopCategorias.length === 0 ? (
-                <p className="text-xs text-gray-400">Sem insumos para categorizar.</p>
-              ) : (
-                dynamicTopCategorias.map((cat, i) => (
-                  <div key={cat.nome} className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-gray-400 w-4">{i + 1}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-gray-700">{cat.nome}:</span>
-                        <span className="text-sm font-semibold text-blue-600">{cat.count}</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-400 rounded-full" style={{ width: `${(cat.count / totalInsumosBar) * 100}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -716,12 +642,9 @@ export function Dashboard() {
               <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
                 <User className="size-3.5 text-blue-600" />
               </div>
-              <span className="text-sm text-gray-700 hidden sm:block">{userEmail}</span>
+              <span className="text-sm text-gray-700 hidden sm:block">Usuário Demo</span>
             </div>
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-            >
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
               <LogOut className="size-3.5" />
               <span className="hidden sm:block">Sair</span>
             </button>
@@ -770,4 +693,3 @@ export function Dashboard() {
     </div>
   );
 }
-

@@ -2,14 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { describe, beforeEach, it, expect, jest, afterEach } from '@jest/globals';
-
-jest.mock('jwks-rsa', () => ({
-  passportJwtSecret: () => () => 'mock-secret-key',
-}));
-
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { describe, beforeEach, it, expect, jest, afterEach } from '@jest/globals';
 
 
 

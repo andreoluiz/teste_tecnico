@@ -33,6 +33,3 @@ pnpm-debug.log*
 # Arquivos do Sistema Operacional
 .DS_Store
 Thumbs.db
-
-# Arquivo de documentação
-ESTRUTURA.md
