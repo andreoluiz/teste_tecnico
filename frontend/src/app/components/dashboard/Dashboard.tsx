@@ -360,11 +360,19 @@ function VendasView({ vendas, isLoading }: { vendas: Venda[]; isLoading: boolean
   );
 }
 
-// ─── Inteligência Comercial ───────────────────────────────────────────────────
-
 const medalhas: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
-function InteligenciaView({ vendas, isLoading }: { vendas: Venda[]; isLoading: boolean }) {
+function InteligenciaView({
+  vendas,
+  produtos,
+  insumos,
+  isLoading,
+}: {
+  vendas: Venda[];
+  produtos: Produto[];
+  insumos: Insumo[];
+  isLoading: boolean;
+}) {
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-gray-500 bg-white border border-gray-200 rounded-xl">Carregando inteligência comercial...</div>;
   }
@@ -372,7 +380,7 @@ function InteligenciaView({ vendas, isLoading }: { vendas: Venda[]; isLoading: b
   // Filtrar apenas concluídas
   const concluidas = vendas.filter((v) => v.status === "Concluída");
 
-  // 1. Calcular Produtos Campeões
+  // 1. Calcular Produtos Campeões (Max 5)
   const vendasPorProduto: Record<string, { nome: string; quantidade: number }> = {};
   concluidas.forEach((venda) => {
     venda.itens.forEach((item) => {
@@ -392,7 +400,7 @@ function InteligenciaView({ vendas, isLoading }: { vendas: Venda[]; isLoading: b
       qtd: item.quantidade,
     }));
 
-  // 2. Calcular Clientes VIP (quem mais investiu)
+  // 2. Calcular Clientes VIP (Max 5)
   const comprasPorCliente: Record<string, { nome: string; pedidos: number; total: number }> = {};
   concluidas.forEach((venda) => {
     const nome = venda.cliente.trim();
@@ -413,91 +421,258 @@ function InteligenciaView({ vendas, isLoading }: { vendas: Venda[]; isLoading: b
       total: c.total,
     }));
 
+  // 3. Giro de Estoque (Produtos com alto giro vs. sem giro)
+  const produtosVendidosIds = Object.keys(vendasPorProduto);
+  
+  // Alto Giro: Estão no TOP vendidos e possuem estoque baixo em relação à procura
+  const altoGiro = produtos
+    .filter((p) => vendasPorProduto[p.id] && vendasPorProduto[p.id].quantidade > 0)
+    .map((p) => ({
+      nome: p.nome,
+      qtdVendida: vendasPorProduto[p.id].quantidade,
+      estoqueAtual: p.quantidade,
+      tipo: p.tipo,
+    }))
+    .sort((a, b) => b.qtdVendida - a.qtdVendida)
+    .slice(0, 3);
+
+  // Sem Giro (Estoque encalhado): Possuem quantidade em estoque mas zero vendas registradas
+  const semGiro = produtos
+    .filter((p) => p.quantidade > 0 && !produtosVendidosIds.includes(p.id))
+    .slice(0, 3);
+
+  // 4. Previsão de Necessidade de Matéria-Prima (Gargalos de Produção)
+  // Regra de Consumo Simplificada: 
+  // Quimono Completo consome 3.5m de Tecido e 1 Linha. Calça consome 2m de Tecido. Faixa consome 1m de Tecido.
+  let tecidoGastoNecessario = 0;
+  let linhaGastoNecessario = 0;
+
+  // Calculamos a velocidade de vendas nos últimos 30 dias (de todos os quimonos e peças)
+  concluidas.forEach((venda) => {
+    venda.itens.forEach((item) => {
+      const nomeLower = item.nomeProduto.toLowerCase();
+      if (nomeLower.includes("quimono")) {
+        tecidoGastoNecessario += 3.5 * item.quantidade;
+        linhaGastoNecessario += 1.0 * item.quantidade;
+      } else if (nomeLower.includes("calça") || nomeLower.includes("calca")) {
+        tecidoGastoNecessario += 2.0 * item.quantidade;
+      } else if (nomeLower.includes("faixa")) {
+        tecidoGastoNecessario += 1.0 * item.quantidade;
+      }
+    });
+  });
+
+  const tecidoInsumo = insumos.find((i) => i.nome.toLowerCase().includes("tecido") || i.tipo.toLowerCase().includes("tecido"));
+  const linhaInsumo = insumos.find((i) => i.nome.toLowerCase().includes("linha") || i.tipo.toLowerCase().includes("linha"));
+
+  const alertasGargalo: { nome: string; estoque: number; unidade: string; diasEstimados: number; status: "urgente" | "alerta" }[] = [];
+
+  if (tecidoInsumo && tecidoGastoNecessario > 0) {
+    const ritmoMensal = tecidoGastoNecessario; // consumo médio do histórico atual
+    const ritmoDiario = ritmoMensal / 30;
+    const diasEstimados = Math.round(tecidoInsumo.quantidade / (ritmoDiario || 1));
+    if (diasEstimados <= 30) {
+      alertasGargalo.push({
+        nome: tecidoInsumo.nome,
+        estoque: tecidoInsumo.quantidade,
+        unidade: tecidoInsumo.unidade.toLowerCase(),
+        diasEstimados,
+        status: diasEstimados <= 10 ? "urgente" : "alerta",
+      });
+    }
+  }
+
+  if (linhaInsumo && linhaGastoNecessario > 0) {
+    const ritmoMensal = linhaGastoNecessario;
+    const ritmoDiario = ritmoMensal / 30;
+    const diasEstimados = Math.round(linhaInsumo.quantidade / (ritmoDiario || 1));
+    if (diasEstimados <= 30) {
+      alertasGargalo.push({
+        nome: linhaInsumo.nome,
+        estoque: linhaInsumo.quantidade,
+        unidade: linhaInsumo.unidade.toLowerCase(),
+        diasEstimados,
+        status: diasEstimados <= 10 ? "urgente" : "alerta",
+      });
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Produtos Campeões */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100">
+    <div className="space-y-6">
+      {/* Alertas de Gargalo de Produção */}
+      {alertasGargalo.length > 0 && (
+        <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <TrendingUp className="size-4 text-green-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Produtos Campeões de Venda</h3>
+            <AlertTriangle className="size-4 text-red-600 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-red-900">Previsão de Matéria-Prima (Gargalos de Insumo)</h3>
+              <p className="text-xs text-red-500">Baseado no ritmo atual de vendas e fabricação dos quimonos</p>
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Ranking dos quimonos e acessórios mais vendidos para guiar sua produção
-          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            {alertasGargalo.map((a) => (
+              <div
+                key={a.nome}
+                className={`border rounded-lg p-4 flex flex-col justify-between ${
+                  a.status === "urgente" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-bold text-gray-900">{a.nome}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Estoque Atual: {a.estoque} {a.unidade}</p>
+                </div>
+                <div className="mt-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                    a.status === "urgente" ? "bg-red-200 text-red-800" : "bg-amber-200 text-amber-800"
+                  }`}>
+                    Acaba em ~{a.diasEstimados} dias
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Posição</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qtd. Vendida</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {produtosCampeoes.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="text-center py-6 text-gray-400 text-xs">Nenhum produto vendido ainda.</td>
+      )}
+
+      {/* Grid Central: Campeões e VIPs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Produtos Campeões */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="size-4 text-green-500" />
+              <h3 className="text-sm font-semibold text-gray-900">Produtos Campeões de Venda (Top 5)</h3>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Ranking dos quimonos e acessórios mais vendidos para guiar sua produção
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Posição</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qtd. Vendida</th>
                 </tr>
-              ) : (
-                produtosCampeoes.map((p) => (
-                  <tr key={p.posicao} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3 text-lg">
-                      {medalhas[p.posicao] ?? <span className="text-sm font-medium text-gray-400">{p.posicao}º</span>}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{p.nome}</td>
-                    <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
-                      {p.qtd} un.
-                    </td>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {produtosCampeoes.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-6 text-gray-400 text-xs">Nenhum produto vendido ainda.</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  produtosCampeoes.map((p) => (
+                    <tr key={p.posicao} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-3 text-lg">
+                        {medalhas[p.posicao] ?? <span className="text-sm font-medium text-gray-400">{p.posicao}º</span>}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{p.nome}</td>
+                      <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
+                        {p.qtd} un.
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Clientes VIP */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Users className="size-4 text-blue-500" />
+              <h3 className="text-sm font-semibold text-gray-900">Clientes VIP (Top 5)</h3>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Maiores faturamentos por cliente para campanhas e descontos de fidelidade
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Rank</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome do Cliente</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pedidos</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Investido</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {clientesVip.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-6 text-gray-400 text-xs">Nenhum cliente comprou ainda.</td>
+                  </tr>
+                ) : (
+                  clientesVip.map((c) => (
+                    <tr key={c.rank} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-3 font-bold text-gray-500">#{c.rank}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-800">{c.nome}</td>
+                      <td className="px-4 py-3 text-gray-500">{c.pedidos} compra{c.pedidos !== 1 ? "s" : ""}</td>
+                      <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
+                        R$ {c.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {/* Clientes VIP */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <Users className="size-4 text-blue-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Clientes VIP (Quem Mais Compra)</h3>
+      {/* Grid Inferior: Análise de Giro de Estoque */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Alto Giro */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Produtos de Alto Giro 🔥</h3>
+            <p className="text-xs text-gray-400">Produtos com venda recorrente acelerada</p>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Maiores faturamentos por cliente para campanhas e descontos de fidelidade
-          </p>
+          <div className="space-y-3">
+            {altoGiro.length === 0 ? (
+              <p className="text-xs text-gray-400 py-2">Sem vendas para classificar o giro.</p>
+            ) : (
+              altoGiro.map((a) => (
+                <div key={a.nome} className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{a.nome}</p>
+                    <p className="text-xs text-gray-400">Vendas: {a.qtdVendida} un. | Estoque Atual: {a.estoqueAtual} un.</p>
+                  </div>
+                  <span className="bg-green-50 text-green-700 border border-green-200 text-xs px-2 py-0.5 rounded-full font-semibold">
+                    Giro Rápido
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Rank</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome do Cliente</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pedidos</th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Investido</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {clientesVip.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="text-center py-6 text-gray-400 text-xs">Nenhum cliente comprou ainda.</td>
-                </tr>
-              ) : (
-                clientesVip.map((c) => (
-                  <tr key={c.rank} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3 font-bold text-gray-500">#{c.rank}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-800">{c.nome}</td>
-                    <td className="px-4 py-3 text-gray-500">{c.pedidos} compra{c.pedidos !== 1 ? "s" : ""}</td>
-                    <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
-                      R$ {c.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+
+        {/* Sem Giro (Encalhado) */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Produtos com Estoque Parado ⚠️</h3>
+            <p className="text-xs text-gray-400">Em estoque com zero saídas registradas</p>
+          </div>
+          <div className="space-y-3">
+            {semGiro.length === 0 ? (
+              <p className="text-xs text-gray-400 py-2">Nenhum produto encalhado em estoque.</p>
+            ) : (
+              semGiro.map((s) => (
+                <div key={s.id} className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{s.nome}</p>
+                    <p className="text-xs text-gray-400">Quantidade em Estoque: {s.quantidade} un.</p>
+                  </div>
+                  <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs px-2 py-0.5 rounded-full font-semibold">
+                    Parado
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -927,7 +1102,14 @@ export function Dashboard() {
         {activeTab === "insumos" && <InsumosView />}
         {activeTab === "estoque" && <EstoqueView />}
         {activeTab === "vendas" && <VendasView vendas={vendas} isLoading={isLoadingVendas} />}
-        {activeTab === "inteligencia" && <InteligenciaView vendas={vendas} isLoading={isLoadingVendas} />}
+        {activeTab === "inteligencia" && (
+          <InteligenciaView
+            vendas={vendas}
+            produtos={produtos}
+            insumos={insumos}
+            isLoading={isLoadingVendas || isLoadingProdutos || isLoadingInsumos}
+          />
+        )}
       </main>
     </div>
   );
