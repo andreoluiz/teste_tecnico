@@ -17,12 +17,12 @@ model Usuario {
   @@map("usuarios")
 }
 
-// Clientes (Cadastro isolado/agenda de contatos)
 model Cliente {
   id        String   @id @default(uuid())
   nome      String
   email     String?
   telefone  String?
+  anotacao  String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

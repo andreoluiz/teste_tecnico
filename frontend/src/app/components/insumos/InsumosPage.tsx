@@ -22,9 +22,10 @@ import {
   Pencil,
   Trash2,
   X,
+  BookOpen,
 } from "lucide-react";
 
-type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
+type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type Status = "Normal" | "Baixo" | "Sem estoque";
 
 const formVazio: InsumoForm = {
@@ -373,9 +374,10 @@ export function InsumosPage() {
 
   const navItems = [
     { key: "dashboard" as NavItem, label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "insumos" as NavItem, label: "Insumos", icon: FlaskConical, path: "/insumos" },
+    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "vendas" as NavItem, label: "Vendas", icon: ShoppingCart, path: "/vendas" },
+    { key: "clientes" as NavItem, label: "Clientes", icon: BookOpen, path: "/clientes" },
   ];
 
   const alterarQuantidade = async (id: string, delta: number) => {

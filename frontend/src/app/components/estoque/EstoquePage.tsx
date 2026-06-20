@@ -14,6 +14,7 @@ import {
   Pencil,
   Trash2,
   X,
+  BookOpen,
 } from "lucide-react";
 import {
   getProdutos,
@@ -24,7 +25,7 @@ import {
   ProdutoForm as NovoProdutoForm
 } from "../../services/produtos";
 
-type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
+type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type Status = "Normal" | "Baixo" | "Sem estoque";
 
 const formVazio: NovoProdutoForm = {
@@ -440,9 +441,10 @@ export function EstoquePage() {
 
   const navItems = [
     { key: "dashboard" as NavItem, label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "insumos" as NavItem, label: "Insumos", icon: FlaskConical, path: "/insumos" },
+    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "vendas" as NavItem, label: "Vendas", icon: ShoppingCart, path: "/vendas" },
+    { key: "clientes" as NavItem, label: "Clientes", icon: BookOpen, path: "/clientes" },
   ];
 
   const handleNav = (item: typeof navItems[0]) => {
