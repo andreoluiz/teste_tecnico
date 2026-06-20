@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../services/supabaseClient";
 import {
   LayoutDashboard,
   Package,
@@ -408,6 +409,20 @@ function EditarProdutoModal({
 
 export function EstoquePage() {
   const navigate = useNavigate();
+  const [userEmail, setUserEmail] = useState<string>("Gerente");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
   const [activeNav, setActiveNav] = useState<NavItem>("estoque");
   const [produtos, setProdutos] = useState<Produto[]>(produtosIniciais);
   const [busca, setBusca] = useState("");
@@ -502,10 +517,10 @@ export function EstoquePage() {
               <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
                 <User className="size-3.5 text-blue-600" />
               </div>
-              <span className="text-sm text-gray-700 hidden sm:block">Usuário Demo</span>
+              <span className="text-sm text-gray-700 hidden sm:block">{userEmail}</span>
             </div>
             <button
-              onClick={() => navigate("/")}
+              onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
             >
               <LogOut className="size-3.5" />
