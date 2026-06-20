@@ -11,11 +11,12 @@ import {
   Plus,
   Trash2,
   X,
+  BookOpen,
 } from "lucide-react";
 import { getProdutos, Produto } from "../../services/produtos";
 import { getVendas, createVenda, cancelarVenda, deleteVenda, Venda, ItemVenda } from "../../services/vendas";
 
-type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
+type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type StatusVenda = "Concluída" | "Cancelada";
 
 function formatarData(iso: string) {
@@ -400,9 +401,10 @@ export function VendasPage() {
 
   const navItems = [
     { key: "dashboard" as NavItem, label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "insumos" as NavItem, label: "Insumos", icon: FlaskConical, path: "/insumos" },
+    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "vendas" as NavItem, label: "Vendas", icon: ShoppingCart, path: "/vendas" },
+    { key: "clientes" as NavItem, label: "Clientes", icon: BookOpen, path: "/clientes" },
   ];
 
   const finalizar = async (cliente: string, itens: { produtoId: string; quantidade: number }[], data: string) => {

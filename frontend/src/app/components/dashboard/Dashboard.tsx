@@ -23,6 +23,7 @@ import {
   Calendar,
   Lightbulb,
   Users,
+  BookOpen,
 } from "lucide-react";
 import {
   LineChart,
@@ -38,7 +39,7 @@ import {
 } from "recharts";
 
 type ActiveTab = "insumos" | "estoque" | "vendas" | "inteligencia";
-type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
+type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type PeriodoVendas = 30 | 60 | 90 | 120;
 
 // ─── Dados Insumos (Serão dinâmicos, mas mantemos os tipos de estrutura) ─────
@@ -1028,9 +1029,10 @@ export function Dashboard() {
             {(
               [
                 { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-                { key: "estoque", label: "Estoque", icon: Package, path: "/estoque" },
                 { key: "insumos", label: "Insumos", icon: FlaskConical, path: "/insumos" },
+                { key: "estoque", label: "Estoque", icon: Package, path: "/estoque" },
                 { key: "vendas", label: "Vendas", icon: ShoppingCart, path: "/vendas" },
+                { key: "clientes", label: "Clientes", icon: BookOpen, path: "/clientes" },
               ] as { key: NavItem; label: string; icon: React.ElementType; path: string }[]
             ).map(({ key, label, icon: Icon, path }) => (
               <button
