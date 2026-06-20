@@ -214,12 +214,22 @@ function useInsumoForm(inicial: InsumoForm) {
 
 // ─── Modal Novo ───────────────────────────────────────────────────────────────
 
-function NovoInsumoModal({ onClose, onCadastrar }: { onClose: () => void; onCadastrar: (f: InsumoForm) => void }) {
+function NovoInsumoModal({ onClose, onCadastrar }: { onClose: () => void; onCadastrar: (f: InsumoForm) => Promise<void> }) {
   const { form, errors, set, validate } = useInsumoForm(formVazio);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) onCadastrar(form);
+    if (isSubmitting) return;
+
+    if (validate()) {
+      setIsSubmitting(true);
+      try {
+        await onCadastrar(form);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
 
   return (
@@ -231,18 +241,27 @@ function NovoInsumoModal({ onClose, onCadastrar }: { onClose: () => void; onCada
             <h2 className="text-base font-semibold text-gray-900">Novo Insumo</h2>
             <p className="text-xs text-gray-500 mt-0.5">Preencha as informações do novo insumo</p>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors">
+          <button onClick={onClose} disabled={isSubmitting} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors disabled:opacity-50">
             <X className="size-4 text-gray-500" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <CamposInsumo form={form} errors={errors} set={set} />
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <button type="button" onClick={onClose} className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
               Cancelar
             </button>
-            <button type="submit" className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-              Cadastrar
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? "Cadastrando..." : "Cadastrar"}
             </button>
           </div>
         </form>

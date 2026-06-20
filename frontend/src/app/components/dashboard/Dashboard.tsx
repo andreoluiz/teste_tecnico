@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInsumos, Insumo } from "../../services/insumos";
 import { getProdutos, Produto } from "../../services/produtos";
+import { getVendas, Venda } from "../../services/vendas";
 import { supabase } from "../../services/supabaseClient";
 import {
   Package,
@@ -168,9 +169,62 @@ const tooltipStyle = {
   color: "#374151",
 };
 
-function VendasView() {
+function VendasView({ vendas, isLoading }: { vendas: Venda[]; isLoading: boolean }) {
   const [periodo, setPeriodo] = useState<PeriodoVendas>(30);
-  const vendasDiarias = gerarVendasDiarias(periodo);
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-sm text-gray-500 bg-white border border-gray-200 rounded-xl">Carregando dados das vendas...</div>;
+  }
+
+  // Filtrar apenas vendas concluídas para faturamento e contadores
+  const concluidas = vendas.filter((v) => v.status === "Concluída");
+
+  // Faturamento total
+  const faturamentoTotal = concluidas.reduce((acc, v) => acc + v.total, 0);
+
+  // Vendas diárias baseadas no período selecionado
+  const hoje = new Date();
+  const vendasDiarias: { dia: string; vendas: number }[] = [];
+  for (let i = periodo - 1; i >= 0; i--) {
+    const d = new Date(hoje);
+    d.setDate(d.getDate() - i);
+    const dataString = d.toISOString().split("T")[0]; // YYYY-MM-DD
+    const label = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+    
+    // Contar vendas concluídas criadas nesse dia
+    const count = concluidas.filter((v) => v.data === dataString).length;
+    vendasDiarias.push({ dia: label, vendas: count });
+  }
+
+  // Faturamento mensal
+  // Agrupar faturamento por mês (últimos 6 meses)
+  const mesesAbrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const faturamentosMensais: Record<string, number> = {};
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(hoje);
+    d.setMonth(d.getMonth() - i);
+    const label = mesesAbrev[d.getMonth()];
+    faturamentosMensais[label] = 0;
+  }
+
+  concluidas.forEach((v) => {
+    // v.data format: YYYY-MM-DD
+    const parts = v.data.split("-");
+    if (parts.length === 3) {
+      const mesIdx = parseInt(parts[1]) - 1;
+      const label = mesesAbrev[mesIdx];
+      if (faturamentosMensais[label] !== undefined) {
+        faturamentosMensais[label] += v.total;
+      }
+    }
+  });
+
+  const vendasPorMes = Object.entries(faturamentosMensais).map(([mes, faturamento]) => ({
+    mes,
+    faturamento,
+  }));
+
+  const ticketMedio = concluidas.length > 0 ? faturamentoTotal / concluidas.length : 0;
 
   return (
     <div className="space-y-6">
@@ -203,7 +257,7 @@ function VendasView() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Vendas Concluídas</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">26</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{concluidas.length}</p>
               <p className="text-xs text-gray-400 mt-1">vendas realizadas</p>
             </div>
             <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center">
@@ -215,7 +269,9 @@ function VendasView() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Faturamento Total</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">R$ 11.675,00</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">
+                R$ {faturamentoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </p>
               <p className="text-xs text-gray-400 mt-1">total em vendas</p>
             </div>
             <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -272,7 +328,7 @@ function VendasView() {
               tick={{ fontSize: 11, fill: "#9ca3af" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+              tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`}
             />
             <Tooltip
               contentStyle={tooltipStyle}
@@ -289,9 +345,9 @@ function VendasView() {
         <h3 className="text-sm font-semibold text-gray-900">Indicadores Financeiros Rápidos</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: "Total de Ordens", value: "3", green: false },
-            { label: "Receita Líquida", value: "R$ 2.851,50", green: true },
-            { label: "Ticket Médio", value: "R$ 950,50", green: true },
+            { label: "Total de Vendas", value: String(concluidas.length), green: false },
+            { label: "Receita Líquida", value: `R$ ${faturamentoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, green: true },
+            { label: "Ticket Médio", value: `R$ ${ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, green: true },
           ].map(({ label, value, green }) => (
             <div key={label} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <p className="text-xs text-gray-500 mb-1">{label}</p>
@@ -306,21 +362,57 @@ function VendasView() {
 
 // ─── Inteligência Comercial ───────────────────────────────────────────────────
 
-const produtosCampeoes = [
-  { posicao: 1, nome: "Quimono Judô Branco M", qtd: 4 },
-  { posicao: 2, nome: "Camisa Azul G", qtd: 3 },
-  { posicao: 3, nome: "Faixa Branca M", qtd: 2 },
-  { posicao: 4, nome: "Calça Preto M", qtd: 1 },
-];
-
-const clientesVip = [
-  { rank: 1, nome: "João Silva", pedidos: 3, total: 2731.0 },
-  { rank: 2, nome: "Patrick", pedidos: 1, total: 120.5 },
-];
-
 const medalhas: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
-function InteligenciaView() {
+function InteligenciaView({ vendas, isLoading }: { vendas: Venda[]; isLoading: boolean }) {
+  if (isLoading) {
+    return <div className="p-8 text-center text-sm text-gray-500 bg-white border border-gray-200 rounded-xl">Carregando inteligência comercial...</div>;
+  }
+
+  // Filtrar apenas concluídas
+  const concluidas = vendas.filter((v) => v.status === "Concluída");
+
+  // 1. Calcular Produtos Campeões
+  const vendasPorProduto: Record<string, { nome: string; quantidade: number }> = {};
+  concluidas.forEach((venda) => {
+    venda.itens.forEach((item) => {
+      if (!vendasPorProduto[item.produtoId]) {
+        vendasPorProduto[item.produtoId] = { nome: item.nomeProduto, quantidade: 0 };
+      }
+      vendasPorProduto[item.produtoId].quantidade += item.quantidade;
+    });
+  });
+
+  const produtosCampeoes = Object.values(vendasPorProduto)
+    .sort((a, b) => b.quantidade - a.quantidade)
+    .slice(0, 5)
+    .map((item, index) => ({
+      posicao: index + 1,
+      nome: item.nome,
+      qtd: item.quantidade,
+    }));
+
+  // 2. Calcular Clientes VIP (quem mais investiu)
+  const comprasPorCliente: Record<string, { nome: string; pedidos: number; total: number }> = {};
+  concluidas.forEach((venda) => {
+    const nome = venda.cliente.trim();
+    if (!comprasPorCliente[nome]) {
+      comprasPorCliente[nome] = { nome, pedidos: 0, total: 0 };
+    }
+    comprasPorCliente[nome].pedidos += 1;
+    comprasPorCliente[nome].total += venda.total;
+  });
+
+  const clientesVip = Object.values(comprasPorCliente)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
+    .map((c, index) => ({
+      rank: index + 1,
+      nome: c.nome,
+      pedidos: c.pedidos,
+      total: c.total,
+    }));
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Produtos Campeões */}
@@ -344,17 +436,23 @@ function InteligenciaView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {produtosCampeoes.map((p) => (
-                <tr key={p.posicao} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-3 text-lg">
-                    {medalhas[p.posicao] ?? <span className="text-sm font-medium text-gray-400">{p.posicao}º</span>}
-                  </td>
-                  <td className="px-4 py-3 font-medium text-gray-800">{p.nome}</td>
-                  <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
-                    {p.qtd} un.
-                  </td>
+              {produtosCampeoes.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="text-center py-6 text-gray-400 text-xs">Nenhum produto vendido ainda.</td>
                 </tr>
-              ))}
+              ) : (
+                produtosCampeoes.map((p) => (
+                  <tr key={p.posicao} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-3 text-lg">
+                      {medalhas[p.posicao] ?? <span className="text-sm font-medium text-gray-400">{p.posicao}º</span>}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{p.nome}</td>
+                    <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
+                      {p.qtd} un.
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -382,16 +480,22 @@ function InteligenciaView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {clientesVip.map((c) => (
-                <tr key={c.rank} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-3 font-bold text-gray-500">#{c.rank}</td>
-                  <td className="px-4 py-3 font-semibold text-gray-800">{c.nome}</td>
-                  <td className="px-4 py-3 text-gray-500">{c.pedidos} compra{c.pedidos !== 1 ? "s" : ""}</td>
-                  <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
-                    R$ {c.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </td>
+              {clientesVip.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-6 text-gray-400 text-xs">Nenhum cliente comprou ainda.</td>
                 </tr>
-              ))}
+              ) : (
+                clientesVip.map((c) => (
+                  <tr key={c.rank} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-3 font-bold text-gray-500">#{c.rank}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-800">{c.nome}</td>
+                    <td className="px-4 py-3 text-gray-500">{c.pedidos} compra{c.pedidos !== 1 ? "s" : ""}</td>
+                    <td className="px-6 py-3 text-right font-semibold text-green-600 tabular-nums">
+                      R$ {c.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -414,6 +518,9 @@ export function Dashboard() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [isLoadingProdutos, setIsLoadingProdutos] = useState(true);
 
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [isLoadingVendas, setIsLoadingVendas] = useState(true);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.email) {
@@ -432,6 +539,12 @@ export function Dashboard() {
       .then((data) => setProdutos(data))
       .catch((e) => console.error("Erro ao carregar produtos na dashboard:", e))
       .finally(() => setIsLoadingProdutos(false));
+
+    setIsLoadingVendas(true);
+    getVendas()
+      .then((data) => setVendas(data))
+      .catch((e) => console.error("Erro ao carregar vendas na dashboard:", e))
+      .finally(() => setIsLoadingVendas(false));
   }, []);
 
   const handleLogout = async () => {
@@ -813,8 +926,8 @@ export function Dashboard() {
         {/* Tab Content */}
         {activeTab === "insumos" && <InsumosView />}
         {activeTab === "estoque" && <EstoqueView />}
-        {activeTab === "vendas" && <VendasView />}
-        {activeTab === "inteligencia" && <InteligenciaView />}
+        {activeTab === "vendas" && <VendasView vendas={vendas} isLoading={isLoadingVendas} />}
+        {activeTab === "inteligencia" && <InteligenciaView vendas={vendas} isLoading={isLoadingVendas} />}
       </main>
     </div>
   );

@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ProdutosModule } from './produtos/produtos.module';
 import { InsumosModule } from './insumos/insumos.module';
+import { VendasModule } from './vendas/vendas.module';
 import { JwtStrategy } from './common/guards/jwt.strategy';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { LoggingMiddleware } from './common/middlewares/logging.middleware';
@@ -22,7 +23,8 @@ import { LoggingMiddleware } from './common/middlewares/logging.middleware';
     PrismaModule, 
     ClientesModule, 
     ProdutosModule,
-    InsumosModule
+    InsumosModule,
+    VendasModule
   ],
   controllers: [AppController],
   providers: [

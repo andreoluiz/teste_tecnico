@@ -66,10 +66,11 @@ function NovoProdutoModal({
   onCadastrar,
 }: {
   onClose: () => void;
-  onCadastrar: (form: NovoProdutoForm) => void;
+  onCadastrar: (form: NovoProdutoForm) => Promise<void>;
 }) {
   const [form, setForm] = useState<NovoProdutoForm>(formVazio);
   const [errors, setErrors] = useState<Partial<Record<keyof NovoProdutoForm, string>>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const set = (field: keyof NovoProdutoForm, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -86,9 +87,18 @@ function NovoProdutoModal({
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) onCadastrar(form);
+    if (isSubmitting) return;
+
+    if (validate()) {
+      setIsSubmitting(true);
+      try {
+        await onCadastrar(form);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
 
   return (
@@ -208,15 +218,17 @@ function NovoProdutoModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              Cadastrar
+              {isSubmitting ? "Cadastrando..." : "Cadastrar"}
             </button>
           </div>
         </form>
