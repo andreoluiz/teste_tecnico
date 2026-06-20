@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ProdutosModule } from './produtos/produtos.module';
+import { InsumosModule } from './insumos/insumos.module';
 import { JwtStrategy } from './common/guards/jwt.strategy';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { LoggingMiddleware } from './common/middlewares/logging.middleware';
@@ -20,7 +21,8 @@ import { LoggingMiddleware } from './common/middlewares/logging.middleware';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     PrismaModule, 
     ClientesModule, 
-    ProdutosModule
+    ProdutosModule,
+    InsumosModule
   ],
   controllers: [AppController],
   providers: [
@@ -43,4 +45,5 @@ export class AppModule implements NestModule {
       .forRoutes('*'); // Aplica a todas as rotas
   }
 }
+
 

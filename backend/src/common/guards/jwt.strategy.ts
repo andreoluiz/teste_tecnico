@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { passportJwtSecret } from 'jwks-rsa';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -10,13 +11,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'temporary-fallback-secret-key-supabase',
+      audience: 'authenticated',
+      secretOrKeyProvider: passportJwtSecret({
+        cache: true,
+        rateLimit: true,
+        jwksRequestsPerMinute: 5,
+        jwksUri: 'https://ichphoubzzbmpffpejbx.supabase.co/auth/v1/.well-known/jwks.json',
+      }),
+      algorithms: ['ES256'],
     });
   }
 
   async validate(payload: any) {
-    this.logger.log(`Acesso autorizado via JWT para o usuário: ${payload.email}`);
-    
+    this.logger.log(`Payload decodificado via Passport com sucesso! Email do usuário: ${payload.email}`);
     return {
       userId: payload.sub,
       email: payload.email,
@@ -24,5 +31,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     };
   }
 }
+
+
+
+
+
+
 
 
