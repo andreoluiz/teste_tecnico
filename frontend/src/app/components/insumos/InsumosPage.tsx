@@ -1,5 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../services/supabaseClient";
+import {
+  getInsumos,
+  createInsumo,
+  updateInsumo,
+  deleteInsumo,
+  Insumo,
+  InsumoForm,
+} from "../../services/insumos";
 import {
   LayoutDashboard,
   Package,
@@ -18,30 +27,6 @@ import {
 type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
 type Status = "Normal" | "Baixo" | "Sem estoque";
 
-interface Insumo {
-  id: number;
-  nome: string;
-  tipo: string;
-  unidade: string;
-  descricao: string;
-  quantidade: number;
-  precoUnit: number;
-  alertaMinimo: number;
-  fornecedor: string;
-  status: Status;
-}
-
-interface InsumoForm {
-  nome: string;
-  tipo: string;
-  unidade: string;
-  descricao: string;
-  quantidadeInicial: string;
-  precoUnit: string;
-  alertaMinimo: string;
-  fornecedor: string;
-}
-
 const formVazio: InsumoForm = {
   nome: "",
   tipo: "",
@@ -55,14 +40,6 @@ const formVazio: InsumoForm = {
 
 const tiposInsumo = ["Tecido", "Linha", "Agulha", "Botão", "Zíper", "Elástico", "Entretela", "Viés", "Ribana", "Outro"];
 const unidades = ["Unidade", "Pacote", "Metro", "Rolo", "Caixa", "Kg", "Par"];
-
-const insumosIniciais: Insumo[] = [
-  { id: 1, nome: "Linha Branca Reforçada", tipo: "Linha", unidade: "Rolo", descricao: "Linha para costura industrial", quantidade: 0, precoUnit: 18.90, alertaMinimo: 5, fornecedor: "Textil Sul", status: "Sem estoque" },
-  { id: 2, nome: "Agulha Industrial", tipo: "Agulha", unidade: "Pacote", descricao: "Agulha para máquina de costura", quantidade: 3, precoUnit: 24.90, alertaMinimo: 5, fornecedor: "MáquinaCost", status: "Baixo" },
-  { id: 3, nome: "Tecido de Algodão Branco", tipo: "Tecido", unidade: "Metro", descricao: "Tecido premium para confecção de quimonos leves", quantidade: 42, precoUnit: 22.90, alertaMinimo: 10, fornecedor: "Tecidos Brasil", status: "Normal" },
-  { id: 4, nome: "Botão Preto 15mm", tipo: "Botão", unidade: "Pacote", descricao: "Botão de resina para uniformes", quantidade: 18, precoUnit: 8.50, alertaMinimo: 5, fornecedor: "Aviamentos SP", status: "Normal" },
-  { id: 5, nome: "Zíper Invisível 30cm", tipo: "Zíper", unidade: "Unidade", descricao: "", quantidade: 60, precoUnit: 3.20, alertaMinimo: 10, fornecedor: "Aviamentos SP", status: "Normal" },
-];
 
 function deriveStatus(qtd: number, alerta: number): Status {
   if (qtd === 0) return "Sem estoque";
@@ -281,11 +258,11 @@ function EditarInsumoModal({ insumo, onClose, onSalvar }: { insumo: Insumo; onCl
     nome: insumo.nome,
     tipo: insumo.tipo,
     unidade: insumo.unidade,
-    descricao: insumo.descricao,
+    descricao: insumo.descricao || "",
     quantidadeInicial: String(insumo.quantidade),
     precoUnit: insumo.precoUnit.toFixed(2),
     alertaMinimo: String(insumo.alertaMinimo),
-    fornecedor: insumo.fornecedor,
+    fornecedor: insumo.fornecedor || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -303,7 +280,6 @@ function EditarInsumoModal({ insumo, onClose, onSalvar }: { insumo: Insumo; onCl
       precoUnit: parseFloat(form.precoUnit) || 0,
       alertaMinimo: alerta,
       fornecedor: form.fornecedor.trim(),
-      status: deriveStatus(qtd, alerta),
     });
   };
 
@@ -340,11 +316,41 @@ function EditarInsumoModal({ insumo, onClose, onSalvar }: { insumo: Insumo; onCl
 
 export function InsumosPage() {
   const navigate = useNavigate();
-  const [activeNav] = useState<NavItem>("insumos");
-  const [insumos, setInsumos] = useState<Insumo[]>(insumosIniciais);
+  const [userEmail, setUserEmail] = useState<string>("Gerente");
+  const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [busca, setBusca] = useState("");
   const [modalNovo, setModalNovo] = useState(false);
   const [insumoEditando, setInsumoEditando] = useState<Insumo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    });
+
+    carregarInsumos();
+  }, []);
+
+  const carregarInsumos = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getInsumos();
+      setInsumos(data);
+    } catch (error) {
+      console.error("Erro ao carregar insumos:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+  
+  const [activeNav] = useState<NavItem>("insumos");
 
   const navItems = [
     { key: "dashboard" as NavItem, label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -353,45 +359,64 @@ export function InsumosPage() {
     { key: "vendas" as NavItem, label: "Vendas", icon: ShoppingCart, path: "/vendas" },
   ];
 
-  const alterarQuantidade = (id: number, delta: number) => {
-    setInsumos((prev) =>
-      prev.map((i) => {
-        if (i.id !== id) return i;
-        const novaQtd = Math.max(0, i.quantidade + delta);
-        return { ...i, quantidade: novaQtd, status: deriveStatus(novaQtd, i.alertaMinimo) };
-      })
-    );
+  const alterarQuantidade = async (id: string, delta: number) => {
+    const original = insumos.find((i) => i.id === id);
+    if (!original) return;
+
+    const novaQtd = Math.max(0, original.quantidade + delta);
+    
+    try {
+      // Otimista
+      setInsumos((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, quantidade: novaQtd } : i))
+      );
+
+      await updateInsumo(id, { quantidade: novaQtd });
+    } catch (error) {
+      console.error("Erro ao alterar quantidade:", error);
+      // Reverter se falhar
+      carregarInsumos();
+    }
   };
 
-  const excluir = (id: number) => setInsumos((prev) => prev.filter((i) => i.id !== id));
-
-  const cadastrar = (form: InsumoForm) => {
-    const qtd = Math.max(0, parseInt(form.quantidadeInicial) || 0);
-    const alerta = Math.max(0, parseInt(form.alertaMinimo) || 0);
-    const novo: Insumo = {
-      id: Date.now(),
-      nome: form.nome.trim(),
-      tipo: form.tipo,
-      unidade: form.unidade,
-      descricao: form.descricao.trim(),
-      quantidade: qtd,
-      precoUnit: parseFloat(form.precoUnit) || 0,
-      alertaMinimo: alerta,
-      fornecedor: form.fornecedor.trim(),
-      status: deriveStatus(qtd, alerta),
-    };
-    setInsumos((prev) => [novo, ...prev]);
-    setModalNovo(false);
+  const excluir = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este insumo?")) return;
+    try {
+      setInsumos((prev) => prev.filter((i) => i.id !== id));
+      await deleteInsumo(id);
+    } catch (error) {
+      console.error("Erro ao excluir insumo:", error);
+      carregarInsumos();
+    }
   };
 
-  const salvar = (atualizado: Insumo) => {
-    setInsumos((prev) => prev.map((i) => (i.id === atualizado.id ? atualizado : i)));
-    setInsumoEditando(null);
+  const cadastrar = async (form: InsumoForm) => {
+    try {
+      const novo = await createInsumo(form);
+      setInsumos((prev) => [novo, ...prev]);
+      setModalNovo(false);
+    } catch (error) {
+      console.error("Erro ao cadastrar insumo:", error);
+    }
+  };
+
+  const salvar = async (atualizado: Insumo) => {
+    try {
+      setInsumos((prev) => prev.map((i) => (i.id === atualizado.id ? atualizado : i)));
+      await updateInsumo(atualizado.id, atualizado);
+      setInsumoEditando(null);
+    } catch (error) {
+      console.error("Erro ao salvar insumo:", error);
+      carregarInsumos();
+    }
   };
 
   const insumosFiltrados = insumos.filter((i) => {
     const q = busca.toLowerCase();
-    return i.nome.toLowerCase().includes(q) || i.tipo.toLowerCase().includes(q) || i.fornecedor.toLowerCase().includes(q);
+    const nomeMatches = i.nome?.toLowerCase().includes(q) || false;
+    const tipoMatches = i.tipo?.toLowerCase().includes(q) || false;
+    const fornecedorMatches = i.fornecedor?.toLowerCase().includes(q) || false;
+    return nomeMatches || tipoMatches || fornecedorMatches;
   });
 
   return (
@@ -426,10 +451,10 @@ export function InsumosPage() {
               <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
                 <User className="size-3.5 text-blue-600" />
               </div>
-              <span className="text-sm text-gray-700 hidden sm:block">Usuário Demo</span>
+              <span className="text-sm text-gray-700 hidden sm:block">{userEmail}</span>
             </div>
             <button
-              onClick={() => navigate("/")}
+              onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
             >
               <LogOut className="size-3.5" />
@@ -448,7 +473,7 @@ export function InsumosPage() {
           </div>
           <button
             onClick={() => setModalNovo(true)}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
           >
             <Plus className="size-4" />
             Novo Insumo
@@ -456,114 +481,103 @@ export function InsumosPage() {
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, tipo ou fornecedor..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
-          />
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar insumos por nome, tipo ou fornecedor..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+            />
+          </div>
         </div>
 
-        {/* Table */}
+        {/* Content Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-            <FlaskConical className="size-4 text-blue-600" />
-            <h2 className="text-sm font-semibold text-gray-900">
-              Insumos Cadastrados ({insumosFiltrados.length})
-            </h2>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Insumo</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fornecedor</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Preço Unit.</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Quantidade</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                  <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {insumosFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
-                      Nenhum insumo encontrado.
-                    </td>
+          {isLoading ? (
+            <div className="p-8 text-center text-sm text-gray-500">Carregando insumos...</div>
+          ) : insumosFiltrados.length === 0 ? (
+            <div className="p-8 text-center text-sm text-gray-500">Nenhum insumo encontrado.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="px-6 py-3">Insumo</th>
+                    <th className="px-4 py-3">Tipo</th>
+                    <th className="px-4 py-3">Fornecedor</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Preço Unit.</th>
+                    <th className="px-6 py-3 text-center w-36">Quantidade</th>
+                    <th className="px-6 py-3 text-center w-24">Ações</th>
                   </tr>
-                ) : (
-                  insumosFiltrados.map((insumo) => (
-                    <tr key={insumo.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-gray-900">{insumo.nome}</p>
-                        {insumo.descricao && (
-                          <p className="text-xs text-gray-400 mt-0.5 max-w-xs truncate">{insumo.descricao}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                          {insumo.tipo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-gray-500 text-sm">
-                        {insumo.fornecedor || <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-4 py-4 text-gray-700 font-medium tabular-nums">
-                        R$ {insumo.precoUnit.toFixed(2).replace(".", ",")}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => alterarQuantidade(insumo.id, -1)}
-                            disabled={insumo.quantidade === 0}
-                            className="w-7 h-7 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Minus className="size-3 text-gray-600" />
-                          </button>
-                          <span className="w-10 text-center font-semibold text-gray-900 tabular-nums">
-                            {insumo.quantidade} <span className="text-xs font-normal text-gray-400">{insumo.unidade.toLowerCase()}</span>
-                          </span>
-                          <button
-                            onClick={() => alterarQuantidade(insumo.id, 1)}
-                            className="w-7 h-7 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center transition-colors"
-                          >
-                            <Plus className="size-3 text-gray-600" />
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <StatusBadge status={insumo.status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => setInsumoEditando(insumo)}
-                            className="w-7 h-7 rounded-md hover:bg-blue-50 flex items-center justify-center transition-colors group/btn"
-                          >
-                            <Pencil className="size-3.5 text-gray-400 group-hover/btn:text-blue-600 transition-colors" />
-                          </button>
-                          <button
-                            onClick={() => excluir(insumo.id)}
-                            className="w-7 h-7 rounded-md hover:bg-red-50 flex items-center justify-center transition-colors group/btn"
-                          >
-                            <Trash2 className="size-3.5 text-gray-400 group-hover/btn:text-red-500 transition-colors" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {insumosFiltrados.map((i) => {
+                    const status = deriveStatus(i.quantidade, i.alertaMinimo);
+                    return (
+                      <tr key={i.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-gray-900">{i.nome}</div>
+                          {i.descricao && <div className="text-xs text-gray-400 mt-0.5">{i.descricao}</div>}
+                        </td>
+                        <td className="px-4 py-4 text-gray-600">{i.tipo}</td>
+                        <td className="px-4 py-4 text-gray-600">{i.fornecedor || "—"}</td>
+                        <td className="px-4 py-4">
+                          <StatusBadge status={status} />
+                        </td>
+                        <td className="px-4 py-4 text-right font-semibold text-gray-900 tabular-nums">
+                          R$ {i.precoUnit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          <span className="text-xs font-normal text-gray-400 block mt-0.5">por {i.unidade.toLowerCase()}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => alterarQuantidade(i.id, -1)}
+                              className="w-7 h-7 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 flex items-center justify-center transition-colors"
+                            >
+                              <Minus className="size-3 text-gray-600" />
+                            </button>
+                            <span className="text-sm font-bold text-gray-900 w-10 text-center tabular-nums">{i.quantidade}</span>
+                            <button
+                              onClick={() => alterarQuantidade(i.id, 1)}
+                              className="w-7 h-7 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 flex items-center justify-center transition-colors"
+                            >
+                              <Plus className="size-3 text-gray-600" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => setInsumoEditando(i)}
+                              className="p-1.5 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded-md transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil className="size-4" />
+                            </button>
+                            <button
+                              onClick={() => excluir(i.id)}
+                              className="p-1.5 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded-md transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
 
+      {/* Modais */}
       {modalNovo && <NovoInsumoModal onClose={() => setModalNovo(false)} onCadastrar={cadastrar} />}
       {insumoEditando && <EditarInsumoModal insumo={insumoEditando} onClose={() => setInsumoEditando(null)} onSalvar={salvar} />}
     </div>
