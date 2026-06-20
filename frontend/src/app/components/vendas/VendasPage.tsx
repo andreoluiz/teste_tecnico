@@ -11,76 +11,15 @@ import {
   Plus,
   Trash2,
   X,
+  BookOpen,
 } from "lucide-react";
+import { getProdutos, Produto } from "../../services/produtos";
+import { getVendas, createVenda, cancelarVenda, deleteVenda, Venda, ItemVenda } from "../../services/vendas";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
+import toast from "react-hot-toast";
 
-type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
+type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type StatusVenda = "Concluída" | "Cancelada";
-
-interface ItemVenda {
-  produtoId: number;
-  nomeProduto: string;
-  quantidade: number;
-  precoUnit: number;
-}
-
-interface Venda {
-  id: number;
-  numero: number;
-  cliente: string;
-  data: string;
-  itens: ItemVenda[];
-  total: number;
-  status: StatusVenda;
-}
-
-// Produtos disponíveis para selecionar na venda (espelha o estoque)
-const produtosDisponiveis = [
-  { id: 1, nome: "Quimono Judô Branco M", preco: 180.0 },
-  { id: 2, nome: "Calça Preto M", preco: 90.0 },
-  { id: 3, nome: "Camisa Azul G", preco: 110.0 },
-  { id: 4, nome: "Camisa Preto P", preco: 105.0 },
-  { id: 5, nome: "Faixa Branca M", preco: 25.0 },
-  { id: 6, nome: "Faixa Marrom M", preco: 30.0 },
-  { id: 7, nome: "Faixa Preta M", preco: 35.0 },
-];
-
-const vendasIniciais: Venda[] = [
-  {
-    id: 1,
-    numero: 1,
-    cliente: "João Silva",
-    data: "2026-06-10",
-    itens: [
-      { produtoId: 1, nomeProduto: "Quimono Judô Branco M", quantidade: 2, precoUnit: 180.0 },
-      { produtoId: 5, nomeProduto: "Faixa Branca M", quantidade: 2, precoUnit: 25.0 },
-    ],
-    total: 410.0,
-    status: "Concluída",
-  },
-  {
-    id: 2,
-    numero: 2,
-    cliente: "Venda teste 1",
-    data: "2026-06-17",
-    itens: [
-      { produtoId: 3, nomeProduto: "Camisa Azul G", quantidade: 3, precoUnit: 110.0 },
-    ],
-    total: 330.0,
-    status: "Concluída",
-  },
-  {
-    id: 3,
-    numero: 3,
-    cliente: "Patrick",
-    data: "2026-06-18",
-    itens: [
-      { produtoId: 7, nomeProduto: "Faixa Preta M", quantidade: 1, precoUnit: 35.0 },
-      { produtoId: 2, nomeProduto: "Calça Preto M", quantidade: 1, precoUnit: 90.0 },
-    ],
-    total: 125.0,
-    status: "Concluída",
-  },
-];
 
 function formatarData(iso: string) {
   const [y, m, d] = iso.split("-");
@@ -95,20 +34,20 @@ function moeda(v: number) {
 // ─── Modal Nova Venda ─────────────────────────────────────────────────────────
 
 interface ItemRascunho {
-  produtoId: number;
+  produtoId: string;
   nomeProduto: string;
   quantidade: number;
   precoUnit: number;
 }
 
 function NovaVendaModal({
-  proximoNumero,
+  produtos,
   onClose,
   onFinalizar,
 }: {
-  proximoNumero: number;
+  produtos: Produto[];
   onClose: () => void;
-  onFinalizar: (venda: Omit<Venda, "id">) => void;
+  onFinalizar: (cliente: string, itens: { produtoId: string; quantidade: number }[], data: string) => Promise<void>;
 }) {
   const hoje = new Date().toISOString().split("T")[0];
   const [cliente, setCliente] = useState("");
@@ -117,17 +56,28 @@ function NovaVendaModal({
   const [qtdSelecionada, setQtdSelecionada] = useState(1);
   const [itens, setItens] = useState<ItemRascunho[]>([]);
   const [erros, setErros] = useState<{ cliente?: string; itens?: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const adicionarItem = () => {
     if (!produtoSelecionado) return;
-    const prod = produtosDisponiveis.find((p) => p.id === parseInt(produtoSelecionado));
+    const prod = produtos.find((p) => p.id === produtoSelecionado);
     if (!prod) return;
+
+    if (prod.quantidade < qtdSelecionada) {
+      toast.error(`Quantidade selecionada (${qtdSelecionada}) é maior do que a disponível em estoque (${prod.quantidade})!`);
+      return;
+    }
 
     setItens((prev) => {
       const existente = prev.find((i) => i.produtoId === prod.id);
+      const novaQtd = existente ? existente.quantidade + qtdSelecionada : qtdSelecionada;
+      if (prod.quantidade < novaQtd) {
+        toast.error(`Quantidade total do item (${novaQtd}) excede o estoque disponível (${prod.quantidade})!`);
+        return prev;
+      }
       if (existente) {
         return prev.map((i) =>
-          i.produtoId === prod.id ? { ...i, quantidade: i.quantidade + qtdSelecionada } : i
+          i.produtoId === prod.id ? { ...i, quantidade: novaQtd } : i
         );
       }
       return [...prev, { produtoId: prod.id, nomeProduto: prod.nome, quantidade: qtdSelecionada, precoUnit: prod.preco }];
@@ -137,28 +87,32 @@ function NovaVendaModal({
     setErros((e) => ({ ...e, itens: undefined }));
   };
 
-  const removerItem = (produtoId: number) => {
+  const removerItem = (produtoId: string) => {
     setItens((prev) => prev.filter((i) => i.produtoId !== produtoId));
   };
 
   const total = itens.reduce((acc, i) => acc + i.quantidade * i.precoUnit, 0);
 
-  const handleFinalizar = (e: React.FormEvent) => {
+  const handleFinalizar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     const novosErros: typeof erros = {};
     if (!cliente.trim()) novosErros.cliente = "Obrigatório";
     if (itens.length === 0) novosErros.itens = "Adicione ao menos um produto";
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
 
-    onFinalizar({
-      numero: proximoNumero,
-      cliente: cliente.trim(),
-      data,
-      itens,
-      total,
-      status: "Concluída",
-    });
+    setIsSubmitting(true);
+    try {
+      await onFinalizar(
+        cliente.trim(),
+        itens.map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade })),
+        data
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -218,8 +172,8 @@ function NovaVendaModal({
                   className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition appearance-none"
                 >
                   <option value="">Selecione um produto</option>
-                  {produtosDisponiveis.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  {produtos.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nome} (Estoque: {p.quantidade})</option>
                   ))}
                 </select>
               </div>
@@ -287,11 +241,27 @@ function NovaVendaModal({
 
           {/* Botões */}
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <button type="button" onClick={onClose} className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
               Cancelar
             </button>
-            <button type="submit" className="w-full py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
-              Finalizar Venda
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:bg-green-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Finalizando...</span>
+                </>
+              ) : (
+                "Finalizar Venda"
+              )}
             </button>
           </div>
         </form>
@@ -302,7 +272,7 @@ function NovaVendaModal({
 
 // ─── Card de Venda ────────────────────────────────────────────────────────────
 
-function VendaCard({ venda, onCancelar, onExcluir }: { venda: Venda; onCancelar: (id: number) => void; onExcluir: (id: number) => void }) {
+function VendaCard({ venda, onCancelar, onExcluir }: { venda: Venda; onCancelar: (id: string) => void; onExcluir: (id: string) => void }) {
   const isCancelada = venda.status === "Cancelada";
 
   return (
@@ -382,6 +352,11 @@ function VendaCard({ venda, onCancelar, onExcluir }: { venda: Venda; onCancelar:
 export function VendasPage() {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string>("Gerente");
+  const [isLoading, setIsLoading] = useState(true);
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [modalAberto, setModalAberto] = useState(false);
+  const [ordenacao, setOrdenacao] = useState<"data" | "numero" | "total">("data");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -389,35 +364,99 @@ export function VendasPage() {
         setUserEmail(data.user.email);
       }
     });
+
+    carregarDados();
   }, []);
+
+  const carregarDados = async () => {
+    setIsLoading(true);
+    try {
+      const [vendasData, produtosData] = await Promise.all([
+        getVendas(),
+        getProdutos()
+      ]);
+      setVendas(vendasData);
+      setProdutos(produtosData);
+    } catch (e) {
+      console.error("Erro ao carregar dados de vendas:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const ordenarVendas = (lista: Venda[]) => {
+    const copia = [...lista];
+    if (ordenacao === "data") {
+      // Ordenar por data decrescente (mais recente primeiro)
+      return copia.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    }
+    if (ordenacao === "numero") {
+      // Ordenar por número decrescente
+      return copia.sort((a, b) => b.numero - a.numero);
+    }
+    if (ordenacao === "total") {
+      // Ordenar por valor total decrescente
+      return copia.sort((a, b) => b.total - a.total);
+    }
+    return copia;
+  };
+
+  const vendasOrdenadas = ordenarVendas(vendas);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
-  const [vendas, setVendas] = useState<Venda[]>(vendasIniciais);
-  const [modalAberto, setModalAberto] = useState(false);
-
-  const proximoNumero = Math.max(0, ...vendas.map((v) => v.numero)) + 1;
 
   const navItems = [
     { key: "dashboard" as NavItem, label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "insumos" as NavItem, label: "Insumos", icon: FlaskConical, path: "/insumos" },
+    { key: "estoque" as NavItem, label: "Estoque", icon: Package, path: "/estoque" },
     { key: "vendas" as NavItem, label: "Vendas", icon: ShoppingCart, path: "/vendas" },
+    { key: "clientes" as NavItem, label: "Clientes", icon: BookOpen, path: "/clientes" },
   ];
 
-  const finalizar = (novaVenda: Omit<Venda, "id">) => {
-    setVendas((prev) => [{ id: Date.now(), ...novaVenda }, ...prev]);
-    setModalAberto(false);
+  const finalizar = async (cliente: string, itens: { produtoId: string; quantidade: number }[], data: string) => {
+    try {
+      await createVenda({ cliente, itens, data });
+      setModalAberto(false);
+      await carregarDados();
+      toast.success("Venda registrada com sucesso!");
+    } catch (e: any) {
+      console.error("Erro ao finalizar venda:", e);
+      toast.error(e.message || "Erro ao registrar a venda.");
+    }
   };
 
-  const cancelarVenda = (id: number) => {
-    setVendas((prev) => prev.map((v) => v.id === id ? { ...v, status: "Cancelada" } : v));
+  const proximoNumero = vendas.length > 0 ? Math.max(...vendas.map((v) => v.numero)) + 1 : 1;
+
+  const handleCancelarVenda = async (id: string) => {
+    const confirmar = window.confirm("Deseja realmente cancelar esta venda? O estoque será devolvido.");
+    if (!confirmar) return;
+
+    try {
+      await cancelarVenda(id);
+      await carregarDados();
+      toast.success("Venda cancelada com sucesso!");
+    } catch (e: any) {
+      console.error("Erro ao cancelar venda:", e);
+      toast.error(e.message || "Erro ao cancelar a venda.");
+    }
   };
 
-  const excluirVenda = (id: number) => {
-    setVendas((prev) => prev.filter((v) => v.id !== id));
+  const handleExcluirVenda = async (id: string) => {
+    const confirmar = window.confirm("Deseja realmente excluir o registro desta venda?");
+    if (!confirmar) return;
+
+    try {
+      await deleteVenda(id);
+      setVendas((prev) => prev.filter((v) => v.id !== id));
+      await carregarDados();
+      toast.success("Registro de venda excluído com sucesso!");
+    } catch (e: any) {
+      console.error("Erro ao excluir venda:", e);
+      toast.error(e.message || "Erro ao excluir a venda.");
+    }
   };
 
   return (
@@ -483,23 +522,50 @@ export function VendasPage() {
 
         {/* Lista */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-            <ShoppingCart className="size-4 text-blue-600" />
-            <h2 className="text-sm font-semibold text-gray-900">
-              Histórico de Vendas ({vendas.length})
-            </h2>
+          <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="size-4 text-blue-600" />
+              <h2 className="text-sm font-semibold text-gray-900">
+                Histórico de Vendas ({vendas.length})
+              </h2>
+            </div>
+            
+            {/* Filtros de Ordenação */}
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="text-xs text-gray-500">Ordenar por:</span>
+              <div className="flex bg-gray-55 border border-gray-200 rounded-lg p-0.5 shadow-sm">
+                {(["data", "numero", "total"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setOrdenacao(opt)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                      ordenacao === opt
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                  >
+                    {opt === "data" ? "Data" : opt === "numero" ? "Número (#)" : "Valor (R$)"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="p-6 space-y-4">
-            {vendas.length === 0 ? (
+            {isLoading ? (
+              <div className="p-12 flex flex-col items-center justify-center gap-3 text-sm text-gray-500">
+                <LoadingSpinner size={28} />
+                <span>Carregando dados das vendas...</span>
+              </div>
+            ) : vendasOrdenadas.length === 0 ? (
               <p className="text-center py-10 text-gray-400 text-sm">Nenhuma venda registrada.</p>
             ) : (
-              vendas.map((venda) => (
+              vendasOrdenadas.map((venda) => (
                 <VendaCard
                   key={venda.id}
                   venda={venda}
-                  onCancelar={cancelarVenda}
-                  onExcluir={excluirVenda}
+                  onCancelar={handleCancelarVenda}
+                  onExcluir={handleExcluirVenda}
                 />
               ))
             )}
@@ -509,7 +575,7 @@ export function VendasPage() {
 
       {modalAberto && (
         <NovaVendaModal
-          proximoNumero={proximoNumero}
+          produtos={produtos}
           onClose={() => setModalAberto(false)}
           onFinalizar={finalizar}
         />

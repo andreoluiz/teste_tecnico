@@ -4,6 +4,7 @@ import { Dashboard } from "./components/dashboard/Dashboard";
 import { EstoquePage } from "./components/estoque/EstoquePage";
 import { InsumosPage } from "./components/insumos/InsumosPage";
 import { VendasPage } from "./components/vendas/VendasPage";
+import { ClientesPage } from "./components/clientes/ClientesPage";
 
 export const router = createBrowserRouter([
   { path: "/", Component: Login },
@@ -11,5 +12,6 @@ export const router = createBrowserRouter([
   { path: "/estoque", Component: EstoquePage },
   { path: "/insumos", Component: InsumosPage },
   { path: "/vendas", Component: VendasPage },
+  { path: "/clientes", Component: ClientesPage },
 ]);
 

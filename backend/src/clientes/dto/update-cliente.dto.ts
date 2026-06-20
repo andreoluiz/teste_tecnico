@@ -13,4 +13,8 @@ export class UpdateClienteDto implements Partial<CreateClienteDto> {
   @IsString()
   @IsOptional()
   telefone?: string;
+
+  @IsString()
+  @IsOptional()
+  anotacao?: string;
 }

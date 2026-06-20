@@ -1,0 +1,191 @@
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateVendaDto } from './dto/create-venda.dto';
+
+@Injectable()
+export class VendasService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(createVendaDto: CreateVendaDto) {
+    const { cliente, data, itens } = createVendaDto;
+
+    return this.prisma.$transaction(async (tx) => {
+      let totalVenda = 0;
+      const itensCriar: any[] = [];
+
+      for (const item of itens) {
+        const produto = await tx.produto.findUnique({
+          where: { id: item.produtoId },
+        });
+
+        if (!produto) {
+          throw new NotFoundException(`Produto com ID ${item.produtoId} não encontrado`);
+        }
+
+        if (produto.quantidade < item.quantidade) {
+          throw new BadRequestException(
+            `Estoque insuficiente para o produto "${produto.nome}". Disponível: ${produto.quantidade}, Solicitado: ${item.quantidade}`
+          );
+        }
+
+        // Decrementa estoque
+        await tx.produto.update({
+          where: { id: item.produtoId },
+          data: {
+            quantidade: produto.quantidade - item.quantidade,
+          },
+        });
+
+        const subtotal = Number(produto.preco) * item.quantidade;
+        totalVenda += subtotal;
+
+        itensCriar.push({
+          produtoId: item.produtoId,
+          quantidade: item.quantidade,
+          precoUnit: produto.preco,
+        });
+      }
+
+      const dataVenda = data ? new Date(`${data}T12:00:00Z`) : undefined;
+
+      const venda = await tx.venda.create({
+        data: {
+          cliente,
+          total: totalVenda,
+          status: 'Concluída',
+          data: dataVenda,
+          itens: {
+            create: itensCriar,
+          },
+        },
+        include: {
+          itens: {
+            include: {
+              produto: true,
+            },
+          },
+        },
+      });
+
+      return venda;
+    });
+  }
+
+  async findAll() {
+    return this.prisma.venda.findMany({
+      include: {
+        itens: {
+          include: {
+            produto: true,
+          },
+        },
+      },
+      orderBy: {
+        data: 'desc',
+      },
+    });
+  }
+
+  async findOne(id: string) {
+    const venda = await this.prisma.venda.findUnique({
+      where: { id },
+      include: {
+        itens: {
+          include: {
+            produto: true,
+          },
+        },
+      },
+    });
+
+    if (!venda) {
+      throw new NotFoundException(`Venda com ID ${id} não encontrada`);
+    }
+
+    return venda;
+  }
+
+  async cancelar(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const venda = await tx.venda.findUnique({
+        where: { id },
+        include: { itens: true },
+      });
+
+      if (!venda) {
+        throw new NotFoundException(`Venda com ID ${id} não encontrada`);
+      }
+
+      if (venda.status === 'Cancelada') {
+        throw new BadRequestException('Esta venda já está cancelada');
+      }
+
+      // Devolve os itens ao estoque
+      for (const item of venda.itens) {
+        const produto = await tx.produto.findUnique({
+          where: { id: item.produtoId },
+        });
+
+        if (produto) {
+          await tx.produto.update({
+            where: { id: item.produtoId },
+            data: {
+              quantidade: produto.quantidade + item.quantidade,
+            },
+          });
+        }
+      }
+
+      // Atualiza o status para cancelada
+      return tx.venda.update({
+        where: { id },
+        data: { status: 'Cancelada' },
+        include: {
+          itens: {
+            include: {
+              produto: true,
+            },
+          },
+        },
+      });
+    });
+  }
+
+  async remove(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const venda = await tx.venda.findUnique({
+        where: { id },
+        include: { itens: true },
+      });
+
+      if (!venda) {
+        throw new NotFoundException(`Venda com ID ${id} não encontrada`);
+      }
+
+      // Se deletar e ainda for ativa, repõe estoque
+      if (venda.status === 'Concluída') {
+        for (const item of venda.itens) {
+          const produto = await tx.produto.findUnique({
+            where: { id: item.produtoId },
+          });
+
+          if (produto) {
+            await tx.produto.update({
+              where: { id: item.produtoId },
+              data: {
+                quantidade: produto.quantidade + item.quantidade,
+              },
+            });
+          }
+        }
+      }
+
+      // Deleta a venda
+      await tx.venda.delete({
+        where: { id },
+      });
+
+      return { success: true };
+    });
+  }
+}
