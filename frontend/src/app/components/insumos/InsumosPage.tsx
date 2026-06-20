@@ -24,6 +24,8 @@ import {
   X,
   BookOpen,
 } from "lucide-react";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
+import toast from "react-hot-toast";
 
 type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type Status = "Normal" | "Baixo" | "Sem estoque";
@@ -262,7 +264,14 @@ function NovoInsumoModal({ onClose, onCadastrar }: { onClose: () => void; onCada
               disabled={isSubmitting}
               className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              {isSubmitting ? "Cadastrando..." : "Cadastrar"}
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Cadastrando...</span>
+                </>
+              ) : (
+                "Cadastrar"
+              )}
             </button>
           </div>
         </form>
@@ -273,7 +282,7 @@ function NovoInsumoModal({ onClose, onCadastrar }: { onClose: () => void; onCada
 
 // ─── Modal Editar ─────────────────────────────────────────────────────────────
 
-function EditarInsumoModal({ insumo, onClose, onSalvar }: { insumo: Insumo; onClose: () => void; onSalvar: (i: Insumo) => void }) {
+function EditarInsumoModal({ insumo, onClose, onSalvar }: { insumo: Insumo; onClose: () => void; onSalvar: (i: Insumo) => Promise<void> }) {
   const { form, errors, set, validate } = useInsumoForm({
     nome: insumo.nome,
     tipo: insumo.tipo,
@@ -284,23 +293,29 @@ function EditarInsumoModal({ insumo, onClose, onSalvar }: { insumo: Insumo; onCl
     alertaMinimo: String(insumo.alertaMinimo),
     fornecedor: insumo.fornecedor || "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || isSubmitting) return;
     const qtd = Math.max(0, parseInt(form.quantidadeInicial) || 0);
     const alerta = Math.max(0, parseInt(form.alertaMinimo) || 0);
-    onSalvar({
-      ...insumo,
-      nome: form.nome.trim(),
-      tipo: form.tipo,
-      unidade: form.unidade,
-      descricao: form.descricao.trim(),
-      quantidade: qtd,
-      precoUnit: parseFloat(form.precoUnit) || 0,
-      alertaMinimo: alerta,
-      fornecedor: form.fornecedor.trim(),
-    });
+    setIsSubmitting(true);
+    try {
+      await onSalvar({
+        ...insumo,
+        nome: form.nome.trim(),
+        tipo: form.tipo,
+        unidade: form.unidade,
+        descricao: form.descricao.trim(),
+        quantidade: qtd,
+        precoUnit: parseFloat(form.precoUnit) || 0,
+        alertaMinimo: alerta,
+        fornecedor: form.fornecedor.trim(),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -319,11 +334,22 @@ function EditarInsumoModal({ insumo, onClose, onSalvar }: { insumo: Insumo; onCl
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <CamposInsumo form={form} errors={errors} set={set} />
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <button type="button" onClick={onClose} className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
               Cancelar
             </button>
-            <button type="submit" className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-              Salvar
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                "Salvar"
+              )}
             </button>
           </div>
         </form>
@@ -405,9 +431,11 @@ export function InsumosPage() {
     try {
       setInsumos((prev) => prev.filter((i) => i.id !== id));
       await deleteInsumo(id);
+      toast.success("Insumo excluído com sucesso!");
     } catch (error) {
       console.error("Erro ao excluir insumo:", error);
       carregarInsumos();
+      toast.error("Erro ao excluir o insumo.");
     }
   };
 
@@ -416,8 +444,10 @@ export function InsumosPage() {
       const novo = await createInsumo(form);
       setInsumos((prev) => [novo, ...prev]);
       setModalNovo(false);
+      toast.success("Insumo cadastrado com sucesso!");
     } catch (error) {
       console.error("Erro ao cadastrar insumo:", error);
+      toast.error("Erro ao cadastrar o insumo.");
     }
   };
 
@@ -426,9 +456,11 @@ export function InsumosPage() {
       setInsumos((prev) => prev.map((i) => (i.id === atualizado.id ? atualizado : i)));
       await updateInsumo(atualizado.id, atualizado);
       setInsumoEditando(null);
+      toast.success("Insumo atualizado com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar insumo:", error);
       carregarInsumos();
+      toast.error("Erro ao salvar o insumo.");
     }
   };
 
@@ -518,7 +550,10 @@ export function InsumosPage() {
         {/* Content Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {isLoading ? (
-            <div className="p-8 text-center text-sm text-gray-500">Carregando insumos...</div>
+            <div className="p-12 flex flex-col items-center justify-center gap-3 text-sm text-gray-500">
+              <LoadingSpinner size={28} />
+              <span>Carregando insumos...</span>
+            </div>
           ) : insumosFiltrados.length === 0 ? (
             <div className="p-8 text-center text-sm text-gray-500">Nenhum insumo encontrado.</div>
           ) : (

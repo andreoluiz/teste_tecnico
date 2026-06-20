@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -7,6 +7,7 @@ import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
 import { supabase } from "../../services/supabaseClient";
 import type { LoginFormData } from "../../types/auth";
+import toast from "react-hot-toast";
 
 export function Login() {
   const navigate = useNavigate();
@@ -21,6 +22,16 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (sessionStorage.getItem("session_expired") === "true") {
+      sessionStorage.removeItem("session_expired");
+      toast.error("Sessão expirada. Por favor, realize o login novamente.", {
+        duration: 5000,
+        id: "session-expired-toast",
+      });
+    }
+  }, []);
 
   // Validation functions
   const validateEmail = (email: string): string | undefined => {
