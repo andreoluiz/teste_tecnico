@@ -24,7 +24,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
+  handleRequest(err: any, user: any, info: any) {
     if (err || !user) {
       this.logger.error(`Falha na validação do JWT: ${info?.message || 'Sem informações extras'} | Erro: ${err?.message || 'Nenhum'}`);
       throw err || new UnauthorizedException('Acesso negado: token inválido ou ausente');
