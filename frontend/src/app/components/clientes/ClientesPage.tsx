@@ -23,6 +23,8 @@ import {
   X,
   BookOpen,
 } from "lucide-react";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
+import toast from "react-hot-toast";
 
 type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 
@@ -147,7 +149,14 @@ function NovoClienteModal({
               disabled={isSubmitting}
               className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              {isSubmitting ? "Gravando..." : "Cadastrar"}
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Gravando...</span>
+                </>
+              ) : (
+                "Cadastrar"
+              )}
             </button>
           </div>
         </form>
@@ -279,7 +288,14 @@ function EditarClienteModal({
               disabled={isSubmitting}
               className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              {isSubmitting ? "Salvando..." : "Salvar Alterações"}
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                "Salvar Alterações"
+              )}
             </button>
           </div>
         </form>
@@ -405,9 +421,10 @@ export function ClientesPage() {
       const novo = await createCliente(form);
       setClientes((prev) => [novo, ...prev]);
       setModalNovo(false);
+      toast.success("Contato cadastrado com sucesso!");
     } catch (error) {
       console.error("Erro ao cadastrar cliente:", error);
-      alert("Erro ao cadastrar o contato.");
+      toast.error("Erro ao cadastrar o contato.");
     }
   };
 
@@ -418,9 +435,10 @@ export function ClientesPage() {
         prev.map((c) => (c.id === editado.id ? editado : c))
       );
       setClienteEditando(null);
+      toast.success("Contato atualizado com sucesso!");
     } catch (error) {
       console.error("Erro ao editar cliente:", error);
-      alert("Erro ao editar o contato.");
+      toast.error("Erro ao editar o contato.");
     }
   };
 
@@ -436,9 +454,11 @@ export function ClientesPage() {
     try {
       setClientes((prev) => prev.filter((c) => c.id !== id));
       await deleteCliente(id);
+      toast.success("Contato excluído com sucesso!");
     } catch (error) {
       console.error("Erro ao excluir cliente:", error);
       carregarClientes();
+      toast.error("Erro ao excluir o contato.");
     }
   };
 
@@ -537,7 +557,10 @@ export function ClientesPage() {
         {/* Lista/Tabela */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {isLoading ? (
-            <div className="p-8 text-center text-sm text-gray-500">Carregando contatos...</div>
+            <div className="p-12 flex flex-col items-center justify-center gap-3 text-sm text-gray-500">
+              <LoadingSpinner size={28} />
+              <span>Carregando contatos...</span>
+            </div>
           ) : clientesFiltrados.length === 0 ? (
             <div className="p-12 text-center text-gray-400 text-sm">Nenhum cliente cadastrado.</div>
           ) : (

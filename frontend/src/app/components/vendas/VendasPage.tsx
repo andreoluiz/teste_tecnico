@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { getProdutos, Produto } from "../../services/produtos";
 import { getVendas, createVenda, cancelarVenda, deleteVenda, Venda, ItemVenda } from "../../services/vendas";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
+import toast from "react-hot-toast";
 
 type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type StatusVenda = "Concluída" | "Cancelada";
@@ -62,7 +64,7 @@ function NovaVendaModal({
     if (!prod) return;
 
     if (prod.quantidade < qtdSelecionada) {
-      alert(`Quantidade selecionada (${qtdSelecionada}) é maior do que a disponível em estoque (${prod.quantidade})!`);
+      toast.error(`Quantidade selecionada (${qtdSelecionada}) é maior do que a disponível em estoque (${prod.quantidade})!`);
       return;
     }
 
@@ -70,7 +72,7 @@ function NovaVendaModal({
       const existente = prev.find((i) => i.produtoId === prod.id);
       const novaQtd = existente ? existente.quantidade + qtdSelecionada : qtdSelecionada;
       if (prod.quantidade < novaQtd) {
-        alert(`Quantidade total do item (${novaQtd}) excede o estoque disponível (${prod.quantidade})!`);
+        toast.error(`Quantidade total do item (${novaQtd}) excede o estoque disponível (${prod.quantidade})!`);
         return prev;
       }
       if (existente) {
@@ -252,7 +254,14 @@ function NovaVendaModal({
               disabled={isSubmitting}
               className="w-full py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:bg-green-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              {isSubmitting ? "Finalizando..." : "Finalizar Venda"}
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Finalizando...</span>
+                </>
+              ) : (
+                "Finalizar Venda"
+              )}
             </button>
           </div>
         </form>
@@ -412,9 +421,10 @@ export function VendasPage() {
       await createVenda({ cliente, itens, data });
       setModalAberto(false);
       await carregarDados();
+      toast.success("Venda registrada com sucesso!");
     } catch (e: any) {
       console.error("Erro ao finalizar venda:", e);
-      alert(e.message || "Erro ao registrar a venda.");
+      toast.error(e.message || "Erro ao registrar a venda.");
     }
   };
 
@@ -427,9 +437,10 @@ export function VendasPage() {
     try {
       await cancelarVenda(id);
       await carregarDados();
+      toast.success("Venda cancelada com sucesso!");
     } catch (e: any) {
       console.error("Erro ao cancelar venda:", e);
-      alert(e.message || "Erro ao cancelar a venda.");
+      toast.error(e.message || "Erro ao cancelar a venda.");
     }
   };
 
@@ -441,9 +452,10 @@ export function VendasPage() {
       await deleteVenda(id);
       setVendas((prev) => prev.filter((v) => v.id !== id));
       await carregarDados();
+      toast.success("Registro de venda excluído com sucesso!");
     } catch (e: any) {
       console.error("Erro ao excluir venda:", e);
-      alert(e.message || "Erro ao excluir a venda.");
+      toast.error(e.message || "Erro ao excluir a venda.");
     }
   };
 
@@ -540,7 +552,12 @@ export function VendasPage() {
           </div>
 
           <div className="p-6 space-y-4">
-            {vendasOrdenadas.length === 0 ? (
+            {isLoading ? (
+              <div className="p-12 flex flex-col items-center justify-center gap-3 text-sm text-gray-500">
+                <LoadingSpinner size={28} />
+                <span>Carregando dados das vendas...</span>
+              </div>
+            ) : vendasOrdenadas.length === 0 ? (
               <p className="text-center py-10 text-gray-400 text-sm">Nenhuma venda registrada.</p>
             ) : (
               vendasOrdenadas.map((venda) => (

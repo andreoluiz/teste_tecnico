@@ -25,6 +25,14 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}): Pro
     headers,
   });
 
+  if (response.status === 401) {
+    console.warn(`[apiFetch] Erro 401 detectado no endpoint ${endpoint}. Efetuando logout e redirecionando...`);
+    await supabase.auth.signOut();
+    sessionStorage.setItem("session_expired", "true");
+    window.location.href = "/";
+    throw new Error("Sessão expirada. Redirecionando...");
+  }
+
   if (response.status === 204) {
     return null;
   }

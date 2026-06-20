@@ -24,6 +24,8 @@ import {
   Produto,
   ProdutoForm as NovoProdutoForm
 } from "../../services/produtos";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
+import toast from "react-hot-toast";
 
 type NavItem = "dashboard" | "estoque" | "insumos" | "vendas" | "clientes";
 type Status = "Normal" | "Baixo" | "Sem estoque";
@@ -229,7 +231,14 @@ function NovoProdutoModal({
               disabled={isSubmitting}
               className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              {isSubmitting ? "Cadastrando..." : "Cadastrar"}
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Cadastrando...</span>
+                </>
+              ) : (
+                "Cadastrar"
+              )}
             </button>
           </div>
         </form>
@@ -247,7 +256,7 @@ function EditarProdutoModal({
 }: {
   produto: Produto;
   onClose: () => void;
-  onSalvar: (atualizado: Produto) => void;
+  onSalvar: (atualizado: Produto) => Promise<void>;
 }) {
   const [form, setForm] = useState({
     nome: produto.nome,
@@ -259,6 +268,7 @@ function EditarProdutoModal({
     material: produto.material,
   });
   const [errors, setErrors] = useState<Partial<typeof form>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const set = (field: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -274,21 +284,26 @@ function EditarProdutoModal({
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || isSubmitting) return;
     const qtd = Math.max(0, parseInt(form.quantidade) || 0);
     const alerta = Math.max(0, parseInt(form.alertaMinimo) || 0);
-    onSalvar({
-      ...produto,
-      nome: form.nome.trim(),
-      tipo: form.categoria,
-      material: form.material.trim() || "—",
-      preco: parseFloat(form.preco) || 0,
-      quantidade: qtd,
-      alertaMinimo: alerta,
-      status: deriveStatus(qtd, alerta),
-    });
+    setIsSubmitting(true);
+    try {
+      await onSalvar({
+        ...produto,
+        nome: form.nome.trim(),
+        tipo: form.categoria,
+        material: form.material.trim() || "—",
+        preco: parseFloat(form.preco) || 0,
+        quantidade: qtd,
+        alertaMinimo: alerta,
+        status: deriveStatus(qtd, alerta),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -383,11 +398,22 @@ function EditarProdutoModal({
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <button type="button" onClick={onClose} className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="w-full py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
               Cancelar
             </button>
-            <button type="submit" className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-              Salvar
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size={16} className="text-white" />
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                "Salvar"
+              )}
             </button>
           </div>
         </form>
@@ -480,9 +506,10 @@ export function EstoquePage() {
     try {
       await deleteProduto(id);
       setProdutos((prev) => prev.filter((p) => p.id !== id));
+      toast.success("Produto excluído com sucesso!");
     } catch (e) {
       console.error("Erro ao excluir produto:", e);
-      alert("Erro ao excluir o produto. Tente novamente.");
+      toast.error("Erro ao excluir o produto. Tente novamente.");
     }
   };
 
@@ -495,9 +522,10 @@ export function EstoquePage() {
         )
       );
       setProdutoEditando(null);
+      toast.success("Produto atualizado com sucesso!");
     } catch (e) {
       console.error("Erro ao salvar produto:", e);
-      alert("Erro ao salvar o produto. Verifique as informações.");
+      toast.error("Erro ao salvar o produto. Verifique as informações.");
     }
   };
 
@@ -510,9 +538,10 @@ export function EstoquePage() {
       };
       setProdutos((prev) => [novoComStatus, ...prev]);
       setModalAberto(false);
+      toast.success("Produto cadastrado com sucesso!");
     } catch (e) {
       console.error("Erro ao cadastrar produto:", e);
-      alert("Erro ao cadastrar o produto. Verifique as informações.");
+      toast.error("Erro ao cadastrar o produto. Verifique as informações.");
     }
   };
 
@@ -623,8 +652,11 @@ export function EstoquePage() {
               <tbody className="divide-y divide-gray-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-gray-500 text-sm">
-                      Carregando dados dos produtos...
+                    <td colSpan={6} className="py-12">
+                      <div className="flex flex-col items-center justify-center gap-3 text-gray-500 text-sm">
+                        <LoadingSpinner size={28} />
+                        <span>Carregando dados dos produtos...</span>
+                      </div>
                     </td>
                   </tr>
                 ) : produtosFiltrados.length === 0 ? (
