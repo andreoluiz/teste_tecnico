@@ -15,29 +15,17 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import {
+  getProdutos,
+  createProduto,
+  updateProduto,
+  deleteProduto,
+  Produto,
+  ProdutoForm as NovoProdutoForm
+} from "../../services/produtos";
 
 type NavItem = "dashboard" | "estoque" | "insumos" | "vendas";
 type Status = "Normal" | "Baixo" | "Sem estoque";
-
-interface Produto {
-  id: number;
-  nome: string;
-  tipo: string;
-  material: string;
-  preco: number;
-  quantidade: number;
-  alertaMinimo: number;
-  status: Status;
-}
-
-interface NovoProdutoForm {
-  nome: string;
-  categoria: string;
-  tamanho: string;
-  preco: string;
-  estoqueInicial: string;
-  alertaMinimo: string;
-}
 
 const formVazio: NovoProdutoForm = {
   nome: "",
@@ -50,16 +38,6 @@ const formVazio: NovoProdutoForm = {
 
 const categorias = ["Quimono Completo", "Calça", "Camisa", "Faixa"];
 const tamanhos = ["PP", "P", "M", "G", "GG", "XGG"];
-
-const produtosIniciais: Produto[] = [
-  { id: 1, nome: "Quimono Judô Branco M", tipo: "Quimono Completo", material: "Algodão 100%", preco: 180, quantidade: 25, alertaMinimo: 10, status: "Normal" },
-  { id: 2, nome: "Calça Preto M", tipo: "Calça", material: "Algodão Reforçado", preco: 90, quantidade: 18, alertaMinimo: 10, status: "Normal" },
-  { id: 3, nome: "Camisa Azul G", tipo: "Camisa", material: "Algodão Premium", preco: 110, quantidade: 20, alertaMinimo: 10, status: "Normal" },
-  { id: 4, nome: "Camisa Preto P", tipo: "Camisa", material: "Algodão Reforçado", preco: 105, quantidade: 0, alertaMinimo: 10, status: "Sem estoque" },
-  { id: 5, nome: "Faixa Branca M", tipo: "Faixa", material: "Algodão", preco: 25, quantidade: 50, alertaMinimo: 10, status: "Normal" },
-  { id: 6, nome: "Faixa Marrom M", tipo: "Faixa", material: "Algodão", preco: 30, quantidade: 15, alertaMinimo: 10, status: "Normal" },
-  { id: 7, nome: "Faixa Preta M", tipo: "Faixa", material: "Algodão", preco: 35, quantidade: 8, alertaMinimo: 10, status: "Baixo" },
-];
 
 function deriveStatus(qtd: number, alerta: number): Status {
   if (qtd === 0) return "Sem estoque";
@@ -410,6 +388,11 @@ function EditarProdutoModal({
 export function EstoquePage() {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string>("Gerente");
+  const [isLoading, setIsLoading] = useState(true);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [busca, setBusca] = useState("");
+  const [modalAberto, setModalAberto] = useState(false);
+  const [produtoEditando, setProdutoEditando] = useState<Produto | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -417,17 +400,31 @@ export function EstoquePage() {
         setUserEmail(data.user.email);
       }
     });
+
+    carregarProdutos();
   }, []);
+
+  const carregarProdutos = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getProdutos();
+      const dataComStatus = data.map((p) => ({
+        ...p,
+        status: deriveStatus(p.quantidade, p.alertaMinimo),
+      }));
+      setProdutos(dataComStatus);
+    } catch (e: any) {
+      console.error("Erro ao carregar produtos:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
   const [activeNav, setActiveNav] = useState<NavItem>("estoque");
-  const [produtos, setProdutos] = useState<Produto[]>(produtosIniciais);
-  const [busca, setBusca] = useState("");
-  const [modalAberto, setModalAberto] = useState(false);
-  const [produtoEditando, setProdutoEditando] = useState<Produto | null>(null);
 
   const navItems = [
     { key: "dashboard" as NavItem, label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -441,38 +438,68 @@ export function EstoquePage() {
     navigate(item.path);
   };
 
-  const alterarQuantidade = (id: number, delta: number) => {
+  const alterarQuantidade = async (id: string, delta: number) => {
+    const produto = produtos.find((p) => p.id === id);
+    if (!produto) return;
+
+    const novaQtd = Math.max(0, produto.quantidade + delta);
+    
     setProdutos((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
-        const novaQtd = Math.max(0, p.quantidade + delta);
         return { ...p, quantidade: novaQtd, status: deriveStatus(novaQtd, p.alertaMinimo) };
       })
     );
+
+    try {
+      await updateProduto(id, { quantidade: novaQtd });
+    } catch (e) {
+      console.error("Erro ao alterar quantidade:", e);
+      carregarProdutos();
+    }
   };
 
-  const excluir = (id: number) => setProdutos((prev) => prev.filter((p) => p.id !== id));
+  const excluir = async (id: string) => {
+    const confirmar = window.confirm("Deseja realmente excluir este produto?");
+    if (!confirmar) return;
 
-  const salvar = (atualizado: Produto) => {
-    setProdutos((prev) => prev.map((p) => (p.id === atualizado.id ? atualizado : p)));
-    setProdutoEditando(null);
+    try {
+      await deleteProduto(id);
+      setProdutos((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      console.error("Erro ao excluir produto:", e);
+      alert("Erro ao excluir o produto. Tente novamente.");
+    }
   };
 
-  const cadastrar = (form: NovoProdutoForm) => {
-    const qtd = parseInt(form.estoqueInicial) || 0;
-    const alerta = parseInt(form.alertaMinimo) || 0;
-    const novo: Produto = {
-      id: Date.now(),
-      nome: `${form.categoria} ${form.tamanho ? form.tamanho + " " : ""}— ${form.nome}`.trim(),
-      tipo: form.categoria,
-      material: "—",
-      preco: parseFloat(form.preco) || 0,
-      quantidade: qtd,
-      alertaMinimo: alerta,
-      status: deriveStatus(qtd, alerta),
-    };
-    setProdutos((prev) => [novo, ...prev]);
-    setModalAberto(false);
+  const salvar = async (atualizado: Produto) => {
+    try {
+      const p = await updateProduto(atualizado.id, atualizado);
+      setProdutos((prev) =>
+        prev.map((item) =>
+          item.id === p.id ? { ...p, status: deriveStatus(p.quantidade, p.alertaMinimo) } : item
+        )
+      );
+      setProdutoEditando(null);
+    } catch (e) {
+      console.error("Erro ao salvar produto:", e);
+      alert("Erro ao salvar o produto. Verifique as informações.");
+    }
+  };
+
+  const cadastrar = async (form: NovoProdutoForm) => {
+    try {
+      const p = await createProduto(form);
+      const novoComStatus = {
+        ...p,
+        status: deriveStatus(p.quantidade, p.alertaMinimo),
+      };
+      setProdutos((prev) => [novoComStatus, ...prev]);
+      setModalAberto(false);
+    } catch (e) {
+      console.error("Erro ao cadastrar produto:", e);
+      alert("Erro ao cadastrar o produto. Verifique as informações.");
+    }
   };
 
   const produtosFiltrados = produtos.filter((p) => {
@@ -580,7 +607,13 @@ export function EstoquePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {produtosFiltrados.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-12 text-gray-500 text-sm">
+                      Carregando dados dos produtos...
+                    </td>
+                  </tr>
+                ) : produtosFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-12 text-gray-400 text-sm">
                       Nenhum produto encontrado.
@@ -664,3 +697,4 @@ export function EstoquePage() {
     </div>
   );
 }
+

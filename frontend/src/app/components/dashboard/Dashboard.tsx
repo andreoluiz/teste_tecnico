@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInsumos, Insumo } from "../../services/insumos";
+import { getProdutos, Produto } from "../../services/produtos";
 import { supabase } from "../../services/supabaseClient";
 import {
   Package,
@@ -46,31 +47,6 @@ const statusConfigInsumo = {
   Baixo: "bg-amber-100 text-amber-700 border border-amber-200",
   "Sem estoque": "bg-red-100 text-red-700 border border-red-200",
 };
-
-// ─── Dados Estoque ────────────────────────────────────────────────────────────
-
-const produtosBaixoEstoque = [
-  { nome: "Camisa Preto P", categoria: "Algodão Reforçado", quantidade: 0, unidade: "un." },
-  { nome: "Faixa Preta M", categoria: "Nylon", quantidade: 8, unidade: "un." },
-];
-
-const distribuicaoProdutos = [
-  { nome: "Quimonos", count: 1 },
-  { nome: "Calças/Camisas", count: 1 },
-  { nome: "Faixas", count: 1 },
-];
-
-const statusGeralEstoque = [
-  { label: "Estoque adequado", count: 5, ok: true },
-  { label: "Baixo estoque", count: 2, ok: false },
-];
-
-const kpiEstoque = [
-  { label: "Produtos em Estoque", value: "7", sub: "modelos cadastrados", icon: Shirt, color: "blue" },
-  { label: "Produtos - Baixo Estoque", value: "2", sub: "necessitam reposição", icon: AlertTriangle, color: "amber" },
-  { label: "Unidades Totais", value: "136", sub: "peças disponíveis", icon: Layers, color: "blue" },
-  { label: "Quimonos Completos", value: "25", sub: "unidades prontas", icon: Package, color: "blue" },
-];
 
 // ─── Dados Vendas ─────────────────────────────────────────────────────────────
 
@@ -131,19 +107,23 @@ function KpiCard({
 
 function InsumosBaixoAlert({
   items,
+  type = "insumos",
 }: {
   items: { nome: string; categoria: string; quantidade: number; unidade: string }[];
+  type?: "produtos" | "insumos";
 }) {
+  const isProdutos = type === "produtos";
+  const navigate = useNavigate();
   return (
     <div className="bg-white rounded-xl border border-amber-200 shadow-sm overflow-hidden">
       <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-center gap-2">
         <AlertTriangle className="size-4 text-amber-500 shrink-0" />
         <div>
           <h2 className="text-sm font-semibold text-amber-800">
-            {items === produtosBaixoEstoque ? "Produtos" : "Insumos"} com Estoque Baixo
+            {isProdutos ? "Produtos" : "Insumos"} com Estoque Baixo
           </h2>
           <p className="text-xs text-amber-600">
-            {items.length} {items === produtosBaixoEstoque ? "produto(s)" : "insumo(s)"} com menos de 10 unidades
+            {items.length} {isProdutos ? "produto(s)" : "insumo(s)"} com necessidade de reposição
           </p>
         </div>
       </div>
@@ -163,8 +143,11 @@ function InsumosBaixoAlert({
             </div>
           ))}
         </div>
-        <button className="mt-4 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
-          Ver todos os {items === produtosBaixoEstoque ? "produtos" : "insumos"}
+        <button 
+          onClick={() => navigate(isProdutos ? "/estoque" : "/insumos")}
+          className="mt-4 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+        >
+          Ver todos os {isProdutos ? "produtos" : "insumos"}
           <ChevronRight className="size-3.5" />
         </button>
       </div>
@@ -174,93 +157,8 @@ function InsumosBaixoAlert({
 
 
 
-function EstoqueView() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiEstoque.map((c) => <KpiCard key={c.label} {...c} />)}
-      </div>
-      <InsumosBaixoAlert items={produtosBaixoEstoque} />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Gerenciar Estoque */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-              <Package className="size-4 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Gerenciar Estoque</h3>
-              <p className="text-xs text-gray-400">Adicionar, editar e controlar produtos</p>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Controle o estoque de quimonos, faixas e acessórios. Registre entradas, saídas e ajustes de inventário.
-          </p>
-          <button className="mt-auto flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
-            Acessar módulo <ChevronRight className="size-3.5" />
-          </button>
-        </div>
 
-        {/* Distribuição de Produtos */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Distribuição de Produtos</h3>
-            <p className="text-xs text-gray-400">Por tipo</p>
-          </div>
-          <div className="space-y-3">
-            {distribuicaoProdutos.map((item) => (
-              <div key={item.nome} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                  <span className="text-sm text-gray-600">{item.nome}:</span>
-                </div>
-                <span className="text-sm font-bold text-blue-600">{item.count}</span>
-              </div>
-            ))}
-          </div>
-          <div className="pt-2 flex gap-1 h-2 rounded-full overflow-hidden">
-            <div className="bg-blue-500 flex-1 rounded-full" />
-            <div className="bg-blue-300 flex-1 rounded-full" />
-            <div className="bg-blue-200 flex-1 rounded-full" />
-          </div>
-        </div>
-
-        {/* Status Geral */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Status Geral</h3>
-            <p className="text-xs text-gray-400">Situação do estoque</p>
-          </div>
-          <div className="space-y-3">
-            {statusGeralEstoque.map((item) => (
-              <div key={item.label} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {item.ok
-                    ? <CheckCircle2 className="size-3.5 text-green-500" />
-                    : <AlertTriangle className="size-3.5 text-amber-500" />}
-                  <span className="text-sm text-gray-600">{item.label}:</span>
-                </div>
-                <span className={`text-sm font-bold ${item.ok ? "text-green-600" : "text-amber-500"}`}>
-                  {item.count}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="pt-2">
-            <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
-              <div className="bg-green-400 rounded-full" style={{ width: `${(5 / 7) * 100}%` }} />
-              <div className="bg-amber-400 rounded-full" style={{ width: `${(2 / 7) * 100}%` }} />
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="text-xs text-gray-400">Adequado</span>
-              <span className="text-xs text-gray-400">Baixo</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// EstoqueView foi movida para dentro do Dashboard component para se tornar dinâmica
 
 const tooltipStyle = {
   backgroundColor: "#fff",
@@ -509,8 +407,12 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("insumos");
   const [activeNav, setActiveNav] = useState<NavItem>("dashboard");
   const [userEmail, setUserEmail] = useState<string>("Gerente");
+  
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [isLoadingInsumos, setIsLoadingInsumos] = useState(true);
+
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [isLoadingProdutos, setIsLoadingProdutos] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -524,6 +426,12 @@ export function Dashboard() {
       .then((data) => setInsumos(data))
       .catch((e) => console.error("Erro ao carregar insumos na dashboard:", e))
       .finally(() => setIsLoadingInsumos(false));
+
+    setIsLoadingProdutos(true);
+    getProdutos()
+      .then((data) => setProdutos(data))
+      .catch((e) => console.error("Erro ao carregar produtos na dashboard:", e))
+      .finally(() => setIsLoadingProdutos(false));
   }, []);
 
   const handleLogout = async () => {
@@ -591,6 +499,7 @@ export function Dashboard() {
               quantidade: i.quantidade,
               unidade: i.unidade.toLowerCase()
             }))} 
+            type="insumos"
           />
         )}
 
@@ -668,6 +577,146 @@ export function Dashboard() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Subcomponente de Estoque com dados dinâmicos injetados
+  function EstoqueView() {
+    if (isLoadingProdutos) {
+      return <div className="p-8 text-center text-sm text-gray-500 bg-white border border-gray-200 rounded-xl">Carregando dados do estoque...</div>;
+    }
+
+    const produtosCadastradosCount = produtos.length;
+    const produtosBaixoEstoque = produtos.filter((p) => p.quantidade <= p.alertaMinimo);
+    const produtosBaixoEstoqueCount = produtosBaixoEstoque.length;
+    const totalUnidadesProdutos = produtos.reduce((acc, p) => acc + p.quantidade, 0);
+    const quimonosCompletosCount = produtos
+      .filter((p) => p.tipo === "Quimono Completo")
+      .reduce((acc, p) => acc + p.quantidade, 0);
+
+    const dynamicKpiEstoque = [
+      { label: "Produtos em Estoque", value: String(produtosCadastradosCount), sub: "modelos cadastrados", icon: Shirt, color: "blue" },
+      { label: "Produtos - Baixo Estoque", value: String(produtosBaixoEstoqueCount), sub: "necessitam reposição", icon: AlertTriangle, color: "amber" },
+      { label: "Unidades Totais", value: String(totalUnidadesProdutos), sub: "peças disponíveis", icon: Layers, color: "blue" },
+      { label: "Quimonos Completos", value: String(quimonosCompletosCount), sub: "unidades prontas", icon: Package, color: "blue" },
+    ];
+
+    const estoqueAdequadoCount = produtos.length - produtosBaixoEstoqueCount;
+    const dynamicStatusGeralEstoque = [
+      { label: "Estoque adequado", count: estoqueAdequadoCount, ok: true },
+      { label: "Baixo estoque", count: produtosBaixoEstoqueCount, ok: false },
+    ];
+
+    const totalProdutosBar = produtos.length || 1;
+    const pctEstoqueAdequado = Math.round((estoqueAdequadoCount / totalProdutosBar) * 100);
+    const pctEstoqueBaixo = 100 - pctEstoqueAdequado;
+
+    const quimonosCount = produtos.filter((p) => p.tipo === "Quimono Completo").length;
+    const calcasCamisasCount = produtos.filter((p) => p.tipo === "Calça" || p.tipo === "Camisa").length;
+    const faixasCount = produtos.filter((p) => p.tipo === "Faixa").length;
+
+    const dynamicDistribuicao = [
+      { nome: "Quimonos", count: quimonosCount },
+      { nome: "Calças/Camisas", count: calcasCamisasCount },
+      { nome: "Faixas", count: faixasCount },
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {dynamicKpiEstoque.map((c) => <KpiCard key={c.label} {...c} />)}
+        </div>
+
+        {produtosBaixoEstoqueCount > 0 && (
+          <InsumosBaixoAlert 
+            items={produtosBaixoEstoque.map(p => ({
+              nome: p.nome,
+              categoria: p.tipo,
+              quantidade: p.quantidade,
+              unidade: "un."
+            }))} 
+            type="produtos"
+          />
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Package className="size-4 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Gerenciar Estoque</h3>
+                <p className="text-xs text-gray-400">Adicionar, editar e controlar produtos</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Controle o estoque de quimonos, faixas e acessórios. Registre entradas, saídas e ajustes de inventário.
+            </p>
+            <button 
+              onClick={() => navigate("/estoque")}
+              className="mt-auto flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+            >
+              Acessar módulo <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Distribuição de Produtos</h3>
+              <p className="text-xs text-gray-400">Por tipo</p>
+            </div>
+            <div className="space-y-3">
+              {dynamicDistribuicao.map((item) => (
+                <div key={item.nome} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-sm text-gray-600">{item.nome}:</span>
+                  </div>
+                  <span className="text-sm font-bold text-blue-600">{item.count}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 flex gap-1 h-2 rounded-full overflow-hidden">
+              <div className="bg-blue-500 flex-1 rounded-full" style={{ width: `${(quimonosCount / (totalProdutosBar || 1)) * 100}%` }} />
+              <div className="bg-blue-300 flex-1 rounded-full" style={{ width: `${(calcasCamisasCount / (totalProdutosBar || 1)) * 100}%` }} />
+              <div className="bg-blue-200 flex-1 rounded-full" style={{ width: `${(faixasCount / (totalProdutosBar || 1)) * 100}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Status Geral</h3>
+              <p className="text-xs text-gray-400">Situação do estoque</p>
+            </div>
+            <div className="space-y-3">
+              {dynamicStatusGeralEstoque.map((item) => (
+                <div key={item.label} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {item.ok
+                      ? <CheckCircle2 className="size-3.5 text-green-500" />
+                      : <AlertTriangle className="size-3.5 text-amber-500" />}
+                    <span className="text-sm text-gray-600">{item.label}:</span>
+                  </div>
+                  <span className={`text-sm font-bold ${item.ok ? "text-green-600" : "text-amber-500"}`}>
+                    {item.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2">
+              <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
+                <div className="bg-green-400 rounded-full" style={{ width: `${pctEstoqueAdequado}%` }} />
+                <div className="bg-amber-400 rounded-full" style={{ width: `${pctEstoqueBaixo}%` }} />
+              </div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-xs text-gray-400">Adequado ({pctEstoqueAdequado}%)</span>
+                <span className="text-xs text-gray-400">Baixo ({pctEstoqueBaixo}%)</span>
+              </div>
             </div>
           </div>
         </div>
