@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Header } from "../Header";
 import { supabase } from "../../services/supabaseClient";
 import {
   getClientes,
@@ -481,59 +482,18 @@ export function ClientesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-              <span className="text-white text-xs font-bold tracking-tight">S</span>
-            </div>
-            <span className="font-semibold text-gray-900 text-sm">SIGE</span>
-          </div>
+      <Header />
 
-          <nav className="hidden md:flex items-center gap-1 flex-1">
-            {navItems.map(({ key, label, icon: Icon, path }) => (
-              <button
-                key={key}
-                onClick={() => navigate(path)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  key === "clientes" ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                }`}
-              >
-                <Icon className="size-3.5" />
-                {label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                <User className="size-3.5 text-blue-600" />
-              </div>
-              <span className="text-sm text-gray-700 hidden sm:block">{userEmail}</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-            >
-              <LogOut className="size-3.5" />
-              <span className="hidden sm:block">Sair</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-screen-xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Agenda de Clientes</h1>
             <p className="text-sm text-gray-500 mt-0.5">Gerencie os contatos e anotações dos clientes</p>
           </div>
           <button
             onClick={() => setModalNovo(true)}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors w-full sm:w-auto"
           >
             <Plus className="size-4" />
             Novo Contato
