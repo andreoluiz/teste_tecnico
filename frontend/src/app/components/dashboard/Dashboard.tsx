@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Header } from "../Header";
 import { getInsumos, Insumo } from "../../services/insumos";
 import { getProdutos, Produto } from "../../services/produtos";
 import { getVendas, Venda } from "../../services/vendas";
@@ -1015,60 +1016,9 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-              <span className="text-white text-xs font-bold tracking-tight">S</span>
-            </div>
-            <span className="font-semibold text-gray-900 text-sm">SIGE</span>
-          </div>
+      <Header />
 
-          <nav className="hidden md:flex items-center gap-1 flex-1">
-            {(
-              [
-                { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-                { key: "insumos", label: "Insumos", icon: FlaskConical, path: "/insumos" },
-                { key: "estoque", label: "Estoque", icon: Package, path: "/estoque" },
-                { key: "vendas", label: "Vendas", icon: ShoppingCart, path: "/vendas" },
-                { key: "clientes", label: "Clientes", icon: BookOpen, path: "/clientes" },
-              ] as { key: NavItem; label: string; icon: React.ElementType; path: string }[]
-            ).map(({ key, label, icon: Icon, path }) => (
-              <button
-                key={key}
-                onClick={() => { setActiveNav(key); if (path !== "/dashboard") navigate(path); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeNav === key
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                }`}
-              >
-                <Icon className="size-3.5" />
-                {label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                <User className="size-3.5 text-blue-600" />
-              </div>
-              <span className="text-sm text-gray-700 hidden sm:block">{userEmail}</span>
-            </div>
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-            >
-              <LogOut className="size-3.5" />
-              <span className="hidden sm:block">Sair</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-screen-xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Page Header */}
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
@@ -1076,7 +1026,7 @@ export function Dashboard() {
         </div>
 
         {/* Tab Filters */}
-        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 w-fit shadow-sm">
+        <div className="flex flex-wrap items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 w-full sm:w-fit shadow-sm">
           {(
             [
               { key: "insumos", label: "Insumos", icon: FlaskConical },
