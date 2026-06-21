@@ -1,6 +1,6 @@
 # SIGE - Sistema de Gestão Empresarial
 
-Este repositório contém a estrutura completa da aplicação **SIGE**, organizada como um monorepositório contendo o backend e o frontend da aplicação, além de suporte para desenvolvimento isolado via Dev Containers.
+Este repositório contém a estrutura completa da aplicação **SIGE**, organizada como um monorepositório contendo o backend e o frontend da aplicação, além de suporte para desenvolvimento isolado via Dev Containers e pipeline automatizada de CI/CD.
 
 ---
 
@@ -9,8 +9,9 @@ Este repositório contém a estrutura completa da aplicação **SIGE**, organiza
 ```text
 teste_tecnico/
 ├── .devcontainer/     # Configuração de containers para desenvolvimento
-├── backend/            # API REST construída com NestJS e Prisma (banco Postgres/Supabase)
-├── frontend/           # Aplicação web SPA construída com React, Vite e TailwindCSS
+├── .github/            # Workflows do GitHub Actions (CI/CD)
+├── backend/            # API REST construída com NestJS e Prisma (PostgreSQL no Supabase)
+├── frontend/           # Aplicação web SPA construída com React, Vite e TailwindCSS (v4)
 └── readme.md           # Documentação principal do projeto (este arquivo)
 ```
 
@@ -20,13 +21,15 @@ teste_tecnico/
 
 ### **Backend** (`/backend`)
 * **Framework**: NestJS (TypeScript)
-* **Banco de Dados & ORM**: PostgreSQL (hospedado no Supabase) com Prisma ORM
+* **Banco de Dados & ORM**: PostgreSQL (Supabase) com Prisma ORM
+* **Segurança**: Autenticação via JWT com proteção integrada
 * **Testes**: Jest e Supertest para testes unitários e de integração (E2E)
 
 ### **Frontend** (`/frontend`)
 * **Ferramenta de Build**: Vite
 * **Biblioteca UI**: React (TypeScript)
 * **Estilização**: TailwindCSS (v4), Radix UI (Shadcn) e Material UI (MUI)
+* **Navegação**: Header responsivo unificado com suporte a menu hambúrguer para dispositivos móveis
 * **Animações**: Framer Motion
 * **Roteamento**: React Router Dom
 
@@ -65,6 +68,14 @@ npm install
 Configure as variáveis de ambiente criando um arquivo `.env` na raiz do diretório `backend/` (use o `.env.example` como base):
 ```env
 DATABASE_URL="sua-url-de-conexao-do-supabase"
+DIRECT_URL="sua-url-de-conexao-direta-do-supabase"
+JWT_SECRET="sua-chave-secreta-jwt"
+PORT=3000
+```
+
+Gere o Prisma Client e execute as migrações:
+```bash
+npx prisma generate
 ```
 
 Inicie o servidor de desenvolvimento:
@@ -87,6 +98,13 @@ Instale as dependências:
 npm install
 ```
 
+Configure as variáveis de ambiente criando um arquivo `.env` na raiz do diretório `frontend/` (use o `.env.example` como base):
+```env
+VITE_SUPABASE_URL="sua-url-do-supabase"
+VITE_SUPABASE_ANON_KEY="sua-chave-anonima-do-supabase"
+VITE_API_URL="http://localhost:3000" # URL do Backend
+```
+
 Inicie o servidor de desenvolvimento do Vite:
 ```bash
 npm run dev
@@ -105,10 +123,6 @@ Acesse a pasta `backend/` e execute:
   ```bash
   npm run test
   ```
-* **Testes Unitários em tempo real (Watch Mode)**:
-  ```bash
-  npm run test:watch
-  ```
 * **Testes de Integração / E2E**:
   ```bash
   npm run test:e2e
@@ -120,16 +134,25 @@ Acesse a pasta `backend/` e execute:
 
 ---
 
-## 📝 Scripts Disponíveis
+## ⚙️ Pipeline de Integração e Entrega Contínua (CI/CD)
 
-### Backend (`/backend`)
-* `npm run build` - Compila o projeto NestJS para produção (`/dist`)
-* `npm run start` - Inicializa a aplicação
-* `npm run start:dev` - Inicializa a aplicação em modo observador (recarrega a cada mudança)
-* `npm run test` - Roda testes unitários
-* `npm run test:e2e` - Roda testes end-to-end com mocks do banco
-* `npm run lint` - Executa a verificação de lint (ESLint) para garantir a consistência do código
+O projeto conta com automação via **GitHub Actions** dividida em duas etapas principais:
 
-### Frontend (`/frontend`)
-* `npm run dev` - Roda o servidor local de desenvolvimento do Vite
-* `npm run build` - Gera os arquivos otimizados de produção na pasta `/dist`
+### 1. Integração Contínua (CI) — `ci.yml`
+Disparado a cada Push ou Pull Request enviado para as branches `main` e `dev`. Ele executa:
+* Instalação de dependências e geração do Prisma Client.
+* Validação do Linter (ESLint).
+* Checagem de tipagem do TypeScript (`tsc --noEmit`).
+* Execução da suíte completa de testes unitários e testes E2E do Backend.
+
+### 2. Entrega Contínua (CD) — `cd.yml`
+Disparado automaticamente ao realizar push direto ou aceitar um merge na branch `main`. Realiza o deploy nos ambientes de produção:
+* **Deploy do Backend (Render)**: Aciona o deploy via webhook do serviço configurado no Render.
+* **Deploy do Frontend (Vercel)**: Compila e publica a aplicação estática do frontend na Vercel.
+
+#### Configuração de Secrets no GitHub:
+Para que a esteira de CD funcione corretamente, você deve cadastrar as seguintes chaves em **Settings > Secrets and variables > Actions > Repository secrets** no GitHub:
+* `RENDER_DEPLOY_WEBHOOK`: URL privada do Deploy Hook gerada no painel do Render.
+* `VERCEL_TOKEN`: Token pessoal de acesso gerado no painel da Vercel.
+* `VERCEL_ORG_ID`: ID da sua organização ou conta pessoal da Vercel.
+* `VERCEL_PROJECT_ID`: ID do projeto do frontend gerado na Vercel.
