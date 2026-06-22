@@ -1,20 +1,4 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { PartialType } from '@nestjs/swagger';
 import { CreateClienteDto } from './create-cliente.dto';
 
-export class UpdateClienteDto implements Partial<CreateClienteDto> {
-  @IsString()
-  @IsOptional()
-  nome?: string;
-
-  @IsEmail()
-  @IsOptional()
-  email?: string;
-
-  @IsString()
-  @IsOptional()
-  telefone?: string;
-
-  @IsString()
-  @IsOptional()
-  anotacao?: string;
-}
+export class UpdateClienteDto extends PartialType(CreateClienteDto) {}
