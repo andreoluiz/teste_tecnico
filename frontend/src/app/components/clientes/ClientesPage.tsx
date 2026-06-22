@@ -110,6 +110,7 @@ function NovoClienteModal({
               placeholder="Ex: (11) 99999-9999"
               value={form.telefone}
               onChange={(e) => set("telefone", e.target.value)}
+              maxLength={15}
               className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
             />
           </div>
@@ -251,6 +252,7 @@ function EditarClienteModal({
               type="text"
               value={form.telefone}
               onChange={(e) => set("telefone", e.target.value)}
+              maxLength={15}
               className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
             />
           </div>
@@ -340,11 +342,11 @@ function VisualizarClienteModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Telefone</span>
-              <p className="text-sm text-gray-800 font-medium">{cliente.telefone || "—"}</p>
+              <p className="text-sm text-gray-800 font-medium break-all">{cliente.telefone || "—"}</p>
             </div>
             <div className="space-y-1">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">E-mail</span>
-              <p className="text-sm text-gray-800 font-medium truncate" title={cliente.email || ""}>{cliente.email || "—"}</p>
+              <p className="text-sm text-gray-800 font-medium break-all" title={cliente.email || ""}>{cliente.email || "—"}</p>
             </div>
           </div>
 
@@ -546,8 +548,8 @@ export function ClientesPage() {
                           {c.nome}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-gray-600">{c.telefone || "—"}</td>
-                      <td className="px-4 py-4 text-gray-600">{c.email || "—"}</td>
+                      <td className="px-4 py-4 text-gray-600 break-all max-w-[200px]">{c.telefone || "—"}</td>
+                      <td className="px-4 py-4 text-gray-600 break-all max-w-[250px]">{c.email || "—"}</td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
                           <button

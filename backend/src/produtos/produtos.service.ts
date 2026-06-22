@@ -54,7 +54,11 @@ export class ProdutosService {
         where: { id },
       });
     } catch (error) {
-      throw new BadRequestException(`Erro ao excluir o produto: ${(error as Error).message}`);
+      const err = error as any;
+      if (err.code === 'P2003' || (err.message && err.message.includes('foreign key'))) {
+        throw new BadRequestException('Não é possível excluir este produto pois ele possui vendas associadas.');
+      }
+      throw new BadRequestException(`Erro ao excluir o produto: ${err.message}`);
     }
   }
 }
