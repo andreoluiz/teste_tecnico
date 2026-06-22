@@ -1,7 +1,10 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { VendasService } from './vendas.service';
 import { CreateVendaDto } from './dto/create-venda.dto';
 
+@ApiTags('Vendas')
+@ApiBearerAuth('JWT-auth')
 @Controller('vendas')
 export class VendasController {
   constructor(private readonly vendasService: VendasService) {}
