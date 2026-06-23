@@ -25,23 +25,56 @@ export class ProdutosController {
   @ApiCreatedResponse({ description: 'Produto criado com sucesso.' })
   @ApiBadRequestResponse({ description: 'Dados de entrada inválidos (erro de validação do DTO).' })
   @ApiUnauthorizedResponse({ description: 'Token JWT ausente ou inválido.' })
-  create(@Body() createProdutoDto: CreateProdutoDto) {
-    return this.produtosService.create(createProdutoDto);
+  async create(@Body() createProdutoDto: CreateProdutoDto) {
+    const p = await this.produtosService.create(createProdutoDto);
+    return {
+      id: p.id,
+      nome: p.nome,
+      tipo: p.tipo,
+      material: p.material,
+      preco: p.preco,
+      quantidade: p.quantidade,
+      alertaMinimo: p.alerta_minimo,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at
+    };
   }
 
   @Get()
   @ApiOkResponse({ description: 'Lista de produtos retornada com sucesso.' })
   @ApiUnauthorizedResponse({ description: 'Token JWT ausente ou inválido.' })
-  findAll() {
-    return this.produtosService.findAll();
+  async findAll() {
+    const list = await this.produtosService.findAll();
+    return list.map(p => ({
+      id: p.id,
+      nome: p.nome,
+      tipo: p.tipo,
+      material: p.material,
+      preco: p.preco,
+      quantidade: p.quantidade,
+      alertaMinimo: p.alerta_minimo,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at
+    }));
   }
 
   @Get(':id')
   @ApiOkResponse({ description: 'Produto retornado com sucesso.' })
   @ApiNotFoundResponse({ description: 'Produto não encontrado.' })
   @ApiUnauthorizedResponse({ description: 'Token JWT ausente ou inválido.' })
-  findOne(@Param('id') id: string) {
-    return this.produtosService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const p = await this.produtosService.findOne(id);
+    return {
+      id: p.id,
+      nome: p.nome,
+      tipo: p.tipo,
+      material: p.material,
+      preco: p.preco,
+      quantidade: p.quantidade,
+      alertaMinimo: p.alerta_minimo,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at
+    };
   }
 
   @Patch(':id')
@@ -49,8 +82,19 @@ export class ProdutosController {
   @ApiBadRequestResponse({ description: 'Dados de entrada inválidos para atualização.' })
   @ApiNotFoundResponse({ description: 'Produto não encontrado.' })
   @ApiUnauthorizedResponse({ description: 'Token JWT ausente ou inválido.' })
-  update(@Param('id') id: string, @Body() updateProdutoDto: UpdateProdutoDto) {
-    return this.produtosService.update(id, updateProdutoDto);
+  async update(@Param('id') id: string, @Body() updateProdutoDto: UpdateProdutoDto) {
+    const p = await this.produtosService.update(id, updateProdutoDto);
+    return {
+      id: p.id,
+      nome: p.nome,
+      tipo: p.tipo,
+      material: p.material,
+      preco: p.preco,
+      quantidade: p.quantidade,
+      alertaMinimo: p.alerta_minimo,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at
+    };
   }
 
   @Delete(':id')

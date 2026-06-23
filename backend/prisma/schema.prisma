@@ -1,9 +1,9 @@
-datasource db {
-  provider = "postgresql"
-}
-
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
 }
 
 model Usuario {
@@ -14,6 +14,7 @@ model Usuario {
   role      String   @default("GERENTE")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
   @@map("usuarios")
 }
 
@@ -29,36 +30,6 @@ model Cliente {
   @@map("clientes")
 }
 
-model Produto {
-  id           String      @id @default(uuid())
-  nome         String
-  tipo         String      
-  material     String      @default("—")
-  preco        Decimal     @db.Decimal(10, 2)
-  quantidade   Int         @default(0)
-  alertaMinimo Int         @default(0) @map("alerta_minimo")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-  
-  itensVenda   ItemVenda[]
-  @@map("produtos")
-}
-
-model Insumo {
-  id           String   @id @default(uuid())
-  nome         String
-  tipo         String  
-  unidade      String   
-  descricao    String?  
-  quantidade   Int      @default(0)
-  precoUnit    Decimal  @map("preco_unit") @db.Decimal(10, 2)
-  alertaMinimo Int      @default(0) @map("alerta_minimo")
-  fornecedor   String?  
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  @@map("insumos")
-}
-
 model Venda {
   id        String      @id @default(uuid())
   numero    Int         @unique @default(autoincrement())
@@ -68,19 +39,20 @@ model Venda {
   status    String      @default("Concluída")
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
-  
   itens     ItemVenda[]
+
   @@map("vendas")
 }
 
 model ItemVenda {
-  id         String   @id @default(uuid())
-  vendaId    String   @map("venda_id")
-  produtoId  String   @map("produto_id")
+  id         String  @id @default(uuid())
+  vendaId    String  @map("venda_id")
   quantidade Int
-  precoUnit  Decimal  @map("preco_unit") @db.Decimal(10, 2) 
-  venda      Venda    @relation(fields: [vendaId], references: [id], onDelete: Cascade)
-  produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Restrict)
+  precoUnit  Decimal @map("preco_unit") @db.Decimal(10, 2)
+  item_id    String
+  itens      itens   @relation(fields: [item_id], references: [id])
+  venda      Venda   @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+
   @@map("itens_venda")
 }
 
@@ -100,6 +72,7 @@ model itens {
   descricao           String?
   preco_custo         Decimal?              @db.Decimal(10, 2)
   fornecedor          String?
+  itens_venda         ItemVenda[]
   movimentacoes_itens movimentacoes_itens[]
 }
 

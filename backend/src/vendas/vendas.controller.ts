@@ -21,16 +21,54 @@ export class VendasController {
   @Get()
   @ApiOkResponse({ description: 'Histórico de todas as vendas retornado com sucesso.' })
   @ApiUnauthorizedResponse({ description: 'Token JWT ausente ou inválido.' })
-  findAll() {
-    return this.vendasService.findAll();
+  async findAll() {
+    const list = await this.vendasService.findAll();
+    return list.map(v => ({
+      ...v,
+      itens: v.itens.map(it => ({
+        id: it.id,
+        vendaId: it.vendaId,
+        produtoId: it.item_id,
+        quantidade: it.quantidade,
+        precoUnit: it.precoUnit,
+        produto: it.itens ? {
+          id: it.itens.id,
+          nome: it.itens.nome,
+          tipo: it.itens.tipo,
+          material: it.itens.material,
+          preco: it.itens.preco,
+          quantidade: it.itens.quantidade,
+          alertaMinimo: it.itens.alerta_minimo,
+        } : null
+      }))
+    }));
   }
 
   @Get(':id')
   @ApiOkResponse({ description: 'Dados da venda retornados com sucesso.' })
   @ApiNotFoundResponse({ description: 'Venda não encontrada.' })
   @ApiUnauthorizedResponse({ description: 'Token JWT ausente ou inválido.' })
-  findOne(@Param('id') id: string) {
-    return this.vendasService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const v = await this.vendasService.findOne(id);
+    return {
+      ...v,
+      itens: v.itens.map(it => ({
+        id: it.id,
+        vendaId: it.vendaId,
+        produtoId: it.item_id,
+        quantidade: it.quantidade,
+        precoUnit: it.precoUnit,
+        produto: it.itens ? {
+          id: it.itens.id,
+          nome: it.itens.nome,
+          tipo: it.itens.tipo,
+          material: it.itens.material,
+          preco: it.itens.preco,
+          quantidade: it.itens.quantidade,
+          alertaMinimo: it.itens.alerta_minimo,
+        } : null
+      }))
+    };
   }
 
   @Patch(':id/cancelar')
@@ -38,8 +76,27 @@ export class VendasController {
   @ApiBadRequestResponse({ description: 'Venda já cancelada ou ID de venda inválido.' })
   @ApiNotFoundResponse({ description: 'Venda não encontrada.' })
   @ApiUnauthorizedResponse({ description: 'Token JWT ausente ou inválido.' })
-  cancelar(@Param('id') id: string) {
-    return this.vendasService.cancelar(id);
+  async cancelar(@Param('id') id: string) {
+    const v = await this.vendasService.cancelar(id);
+    return {
+      ...v,
+      itens: v.itens.map(it => ({
+        id: it.id,
+        vendaId: it.vendaId,
+        produtoId: it.item_id,
+        quantidade: it.quantidade,
+        precoUnit: it.precoUnit,
+        produto: it.itens ? {
+          id: it.itens.id,
+          nome: it.itens.nome,
+          tipo: it.itens.tipo,
+          material: it.itens.material,
+          preco: it.itens.preco,
+          quantidade: it.itens.quantidade,
+          alertaMinimo: it.itens.alerta_minimo,
+        } : null
+      }))
+    };
   }
 
   @Delete(':id')

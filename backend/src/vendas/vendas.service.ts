@@ -14,8 +14,8 @@ export class VendasService {
       const itensCriar: any[] = [];
 
       for (const item of itens) {
-        const produto = await tx.produto.findUnique({
-          where: { id: item.produtoId },
+        const produto = await tx.itens.findFirst({
+          where: { id: item.produtoId, is_produto: true },
         });
 
         if (!produto) {
@@ -29,7 +29,7 @@ export class VendasService {
         }
 
         // Decrementa estoque
-        await tx.produto.update({
+        await tx.itens.update({
           where: { id: item.produtoId },
           data: {
             quantidade: produto.quantidade - item.quantidade,
@@ -40,7 +40,7 @@ export class VendasService {
         totalVenda += subtotal;
 
         itensCriar.push({
-          produtoId: item.produtoId,
+          item_id: item.produtoId,
           quantidade: item.quantidade,
           precoUnit: produto.preco,
         });
@@ -61,7 +61,7 @@ export class VendasService {
         include: {
           itens: {
             include: {
-              produto: true,
+              itens: true,
             },
           },
         },
@@ -76,7 +76,7 @@ export class VendasService {
       include: {
         itens: {
           include: {
-            produto: true,
+            itens: true,
           },
         },
       },
@@ -92,7 +92,7 @@ export class VendasService {
       include: {
         itens: {
           include: {
-            produto: true,
+            itens: true,
           },
         },
       },
@@ -122,13 +122,13 @@ export class VendasService {
 
       // Devolve os itens ao estoque
       for (const item of venda.itens) {
-        const produto = await tx.produto.findUnique({
-          where: { id: item.produtoId },
+        const produto = await tx.itens.findFirst({
+          where: { id: item.item_id, is_produto: true },
         });
 
         if (produto) {
-          await tx.produto.update({
-            where: { id: item.produtoId },
+          await tx.itens.update({
+            where: { id: item.item_id },
             data: {
               quantidade: produto.quantidade + item.quantidade,
             },
@@ -143,7 +143,7 @@ export class VendasService {
         include: {
           itens: {
             include: {
-              produto: true,
+              itens: true,
             },
           },
         },
@@ -165,13 +165,13 @@ export class VendasService {
       // Se deletar e ainda for ativa, repõe estoque
       if (venda.status === 'Concluída') {
         for (const item of venda.itens) {
-          const produto = await tx.produto.findUnique({
-            where: { id: item.produtoId },
+          const produto = await tx.itens.findFirst({
+            where: { id: item.item_id, is_produto: true },
           });
 
           if (produto) {
-            await tx.produto.update({
-              where: { id: item.produtoId },
+            await tx.itens.update({
+              where: { id: item.item_id },
               data: {
                 quantidade: produto.quantidade + item.quantidade,
               },
