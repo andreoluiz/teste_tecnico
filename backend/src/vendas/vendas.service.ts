@@ -67,6 +67,18 @@ export class VendasService {
         },
       });
 
+      // Registrar as movimentações de saída para cada item vendido
+      for (const item of itens) {
+        await tx.movimentacoes_itens.create({
+          data: {
+            item_id: item.produtoId,
+            tipo: 'SAIDA',
+            quantidade: item.quantidade,
+            motivo: `Baixa de estoque por venda realizada nº ${venda.numero} (Cliente: ${cliente})`,
+          },
+        });
+      }
+
       return venda;
     });
   }
@@ -133,6 +145,15 @@ export class VendasService {
               quantidade: produto.quantidade + item.quantidade,
             },
           });
+
+          await tx.movimentacoes_itens.create({
+            data: {
+              item_id: item.item_id,
+              tipo: 'ENTRADA',
+              quantidade: item.quantidade,
+              motivo: `Estorno de estoque por cancelamento de venda nº ${venda.numero} (Cliente: ${venda.cliente})`,
+            },
+          });
         }
       }
 
@@ -174,6 +195,15 @@ export class VendasService {
               where: { id: item.item_id },
               data: {
                 quantidade: produto.quantidade + item.quantidade,
+              },
+            });
+
+            await tx.movimentacoes_itens.create({
+              data: {
+                item_id: item.item_id,
+                tipo: 'ENTRADA',
+                quantidade: item.quantidade,
+                motivo: `Estorno de estoque por exclusão de venda nº ${venda.numero} (Cliente: ${venda.cliente})`,
               },
             });
           }

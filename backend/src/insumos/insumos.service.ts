@@ -9,19 +9,35 @@ export class InsumosService {
 
   async create(createInsumoDto: CreateInsumoDto) {
     try {
-      return await this.prisma.itens.create({
-        data: {
-          nome: createInsumoDto.nome,
-          tipo: createInsumoDto.tipo,
-          unidade: createInsumoDto.unidade,
-          descricao: createInsumoDto.descricao,
-          quantidade: createInsumoDto.quantidade ?? 0,
-          preco_custo: createInsumoDto.precoUnit,
-          alerta_minimo: createInsumoDto.alertaMinimo ?? 0,
-          fornecedor: createInsumoDto.fornecedor,
-          is_produto: false,
-          is_insumo: true,
-        },
+      return await this.prisma.$transaction(async (tx) => {
+        const item = await tx.itens.create({
+          data: {
+            nome: createInsumoDto.nome,
+            tipo: createInsumoDto.tipo,
+            unidade: createInsumoDto.unidade,
+            descricao: createInsumoDto.descricao,
+            quantidade: createInsumoDto.quantidade ?? 0,
+            preco_custo: createInsumoDto.precoUnit,
+            alerta_minimo: createInsumoDto.alertaMinimo ?? 0,
+            fornecedor: createInsumoDto.fornecedor,
+            is_produto: false,
+            is_insumo: true,
+          },
+        });
+
+        const qtdInicial = createInsumoDto.quantidade ?? 0;
+        if (qtdInicial > 0) {
+          await tx.movimentacoes_itens.create({
+            data: {
+              item_id: item.id,
+              tipo: 'ENTRADA',
+              quantidade: qtdInicial,
+              motivo: 'Cadastro inicial de matéria-prima',
+            },
+          });
+        }
+
+        return item;
       });
     } catch (error) {
       throw new BadRequestException(`Erro ao criar o insumo: ${(error as Error).message}`);
@@ -53,21 +69,39 @@ export class InsumosService {
   }
 
   async update(id: string, updateInsumoDto: UpdateInsumoDto) {
-    await this.findOne(id);
+    const original = await this.findOne(id);
     try {
-      const data: any = {};
-      if (updateInsumoDto.nome !== undefined) data.nome = updateInsumoDto.nome;
-      if (updateInsumoDto.tipo !== undefined) data.tipo = updateInsumoDto.tipo;
-      if (updateInsumoDto.unidade !== undefined) data.unidade = updateInsumoDto.unidade;
-      if (updateInsumoDto.descricao !== undefined) data.descricao = updateInsumoDto.descricao;
-      if (updateInsumoDto.quantidade !== undefined) data.quantidade = updateInsumoDto.quantidade;
-      if (updateInsumoDto.precoUnit !== undefined) data.preco_custo = updateInsumoDto.precoUnit;
-      if (updateInsumoDto.alertaMinimo !== undefined) data.alerta_minimo = updateInsumoDto.alertaMinimo;
-      if (updateInsumoDto.fornecedor !== undefined) data.fornecedor = updateInsumoDto.fornecedor;
+      return await this.prisma.$transaction(async (tx) => {
+        const data: any = {};
+        if (updateInsumoDto.nome !== undefined) data.nome = updateInsumoDto.nome;
+        if (updateInsumoDto.tipo !== undefined) data.tipo = updateInsumoDto.tipo;
+        if (updateInsumoDto.unidade !== undefined) data.unidade = updateInsumoDto.unidade;
+        if (updateInsumoDto.descricao !== undefined) data.descricao = updateInsumoDto.descricao;
+        if (updateInsumoDto.quantidade !== undefined) data.quantidade = updateInsumoDto.quantidade;
+        if (updateInsumoDto.precoUnit !== undefined) data.preco_custo = updateInsumoDto.precoUnit;
+        if (updateInsumoDto.alertaMinimo !== undefined) data.alerta_minimo = updateInsumoDto.alertaMinimo;
+        if (updateInsumoDto.fornecedor !== undefined) data.fornecedor = updateInsumoDto.fornecedor;
 
-      return await this.prisma.itens.update({
-        where: { id },
-        data,
+        const updated = await tx.itens.update({
+          where: { id },
+          data,
+        });
+
+        if (updateInsumoDto.quantidade !== undefined && updateInsumoDto.quantidade !== original.quantidade) {
+          const delta = updateInsumoDto.quantidade - original.quantidade;
+          if (delta !== 0) {
+            await tx.movimentacoes_itens.create({
+              data: {
+                item_id: id,
+                tipo: delta > 0 ? 'ENTRADA' : 'SAIDA',
+                quantidade: Math.abs(delta),
+                motivo: `Atualização de estoque (Ajuste manual de ${original.quantidade} para ${updateInsumoDto.quantidade})`,
+              },
+            });
+          }
+        }
+
+        return updated;
       });
     } catch (error) {
       throw new BadRequestException(`Erro ao atualizar o insumo: ${(error as Error).message}`);
