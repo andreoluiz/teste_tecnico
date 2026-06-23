@@ -22,9 +22,9 @@ model Cliente {
   nome      String
   email     String?
   telefone  String?
-  anotacao  String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  anotacao  String?
 
   @@map("clientes")
 }
@@ -82,4 +82,38 @@ model ItemVenda {
   venda      Venda    @relation(fields: [vendaId], references: [id], onDelete: Cascade)
   produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Restrict)
   @@map("itens_venda")
+}
+
+model itens {
+  id                  String                @id @default(uuid())
+  is_produto          Boolean               @default(false)
+  is_insumo           Boolean               @default(false)
+  nome                String
+  tipo                String
+  quantidade          Int                   @default(0)
+  alerta_minimo       Int                   @default(0)
+  created_at          DateTime              @default(now())
+  updated_at          DateTime              @default(now()) @updatedAt
+  material            String?               @default("—")
+  preco               Decimal?              @db.Decimal(10, 2)
+  unidade             String?
+  descricao           String?
+  preco_custo         Decimal?              @db.Decimal(10, 2)
+  fornecedor          String?
+  movimentacoes_itens movimentacoes_itens[]
+}
+
+model movimentacoes_itens {
+  id         String           @id @default(uuid())
+  item_id    String
+  tipo       TipoMovimentacao
+  quantidade Int
+  motivo     String?
+  created_at DateTime         @default(now())
+  itens      itens            @relation(fields: [item_id], references: [id], onDelete: Cascade)
+}
+
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
 }

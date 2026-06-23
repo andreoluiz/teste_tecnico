@@ -479,27 +479,6 @@ export function EstoquePage() {
     navigate(item.path);
   };
 
-  const alterarQuantidade = async (id: string, delta: number) => {
-    const produto = produtos.find((p) => p.id === id);
-    if (!produto) return;
-
-    const novaQtd = Math.max(0, produto.quantidade + delta);
-    
-    setProdutos((prev) =>
-      prev.map((p) => {
-        if (p.id !== id) return p;
-        return { ...p, quantidade: novaQtd, status: deriveStatus(novaQtd, p.alertaMinimo) };
-      })
-    );
-
-    try {
-      await updateProduto(id, { quantidade: novaQtd });
-    } catch (e) {
-      console.error("Erro ao alterar quantidade:", e);
-      carregarProdutos();
-    }
-  };
-
   const excluir = async (id: string) => {
     const confirmar = window.confirm("Deseja realmente excluir este produto?");
     if (!confirmar) return;
@@ -631,25 +610,10 @@ export function EstoquePage() {
                       <td className="px-4 py-4 text-gray-700 font-medium tabular-nums">
                         R$ {produto.preco.toFixed(2).replace(".", ",")}
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => alterarQuantidade(produto.id, -1)}
-                            disabled={produto.quantidade === 0}
-                            className="w-7 h-7 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Minus className="size-3 text-gray-600" />
-                          </button>
-                          <span className="w-8 text-center font-semibold text-gray-900 tabular-nums">
-                            {produto.quantidade}
-                          </span>
-                          <button
-                            onClick={() => alterarQuantidade(produto.id, 1)}
-                            className="w-7 h-7 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center transition-colors"
-                          >
-                            <Plus className="size-3 text-gray-600" />
-                          </button>
-                        </div>
+                      <td className="px-4 py-4 text-center">
+                        <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                          {produto.quantidade}
+                        </span>
                       </td>
                       <td className="px-4 py-4 text-center">
                         <StatusBadge status={produto.status} />

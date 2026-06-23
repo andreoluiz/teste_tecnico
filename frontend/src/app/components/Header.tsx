@@ -11,12 +11,13 @@ import {
   LogOut,
   Menu,
   X,
+  History,
 } from "lucide-react";
 
 export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [userEmail, setUserEmail] = useState<string>("Gerente");
+  const [userEmail, setUserEmail] = useState<string>("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -25,6 +26,16 @@ export function Header() {
         setUserEmail(data.user.email);
       }
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -38,6 +49,7 @@ export function Header() {
     { key: "estoque", label: "Estoque", icon: Package, path: "/estoque" },
     { key: "vendas", label: "Vendas", icon: ShoppingCart, path: "/vendas" },
     { key: "clientes", label: "Clientes", icon: BookOpen, path: "/clientes" },
+    { key: "movimentacoes", label: "Movimentações", icon: History, path: "/movimentacoes" },
   ];
 
   const currentPath = location.pathname;
@@ -75,16 +87,18 @@ export function Header() {
         </nav>
 
         {/* Desktop User / Logout */}
-        <div className="hidden md:flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+        <div className="hidden md:flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 w-[180px]">
+            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
               <User className="size-3.5 text-blue-600" />
             </div>
-            <span className="text-sm text-gray-700 max-w-[150px] truncate">{userEmail}</span>
+            <span className="text-sm text-gray-700 truncate flex-1" title={userEmail}>
+              {userEmail || "Carregando..."}
+            </span>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors shrink-0"
           >
             <LogOut className="size-3.5" />
             <span>Sair</span>
@@ -131,10 +145,10 @@ export function Header() {
 
           <div className="flex items-center justify-between px-3 py-1">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                 <User className="size-3.5 text-blue-600" />
               </div>
-              <span className="text-sm text-gray-700 max-w-[180px] truncate">{userEmail}</span>
+              <span className="text-sm text-gray-700 max-w-[180px] truncate">{userEmail || "Carregando..."}</span>
             </div>
             <button
               onClick={handleLogout}

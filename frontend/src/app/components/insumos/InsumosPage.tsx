@@ -407,26 +407,6 @@ export function InsumosPage() {
     { key: "clientes" as NavItem, label: "Clientes", icon: BookOpen, path: "/clientes" },
   ];
 
-  const alterarQuantidade = async (id: string, delta: number) => {
-    const original = insumos.find((i) => i.id === id);
-    if (!original) return;
-
-    const novaQtd = Math.max(0, original.quantidade + delta);
-    
-    try {
-      // Otimista
-      setInsumos((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, quantidade: novaQtd } : i))
-      );
-
-      await updateInsumo(id, { quantidade: novaQtd });
-    } catch (error) {
-      console.error("Erro ao alterar quantidade:", error);
-      // Reverter se falhar
-      carregarInsumos();
-    }
-  };
-
   const excluir = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este insumo?")) return;
     try {
@@ -548,22 +528,8 @@ export function InsumosPage() {
                           R$ {i.precoUnit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           <span className="text-xs font-normal text-gray-400 block mt-0.5">por {i.unidade.toLowerCase()}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => alterarQuantidade(i.id, -1)}
-                              className="w-7 h-7 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 flex items-center justify-center transition-colors"
-                            >
-                              <Minus className="size-3 text-gray-600" />
-                            </button>
-                            <span className="text-sm font-bold text-gray-900 w-10 text-center tabular-nums">{i.quantidade}</span>
-                            <button
-                              onClick={() => alterarQuantidade(i.id, 1)}
-                              className="w-7 h-7 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 flex items-center justify-center transition-colors"
-                            >
-                              <Plus className="size-3 text-gray-600" />
-                            </button>
-                          </div>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-semibold text-gray-900 tabular-nums">{i.quantidade}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-1.5">
