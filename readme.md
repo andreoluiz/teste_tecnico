@@ -14,7 +14,7 @@ teste_tecnico/
 ├── frontend/           # Aplicação web SPA construída com React, Vite e TailwindCSS (v4)
 └── readme.md           # Documentação principal do projeto (este arquivo)
 ```
-
+...
 ---
 
 ## 🛠️ Tecnologias Principais
